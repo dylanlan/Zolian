@@ -28,9 +28,10 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
 {
     public bool Abyss;
     public Position LastPosition;
+    public List<List<TileGrid>> MasterGrid = [];
     public event PropertyChangedEventHandler PropertyChanged;
     public readonly WorldServerTimer BuffAndDebuffTimer;
-    public Stopwatch MonsterBuffAndDebuffStopWatch = new();
+    public readonly Stopwatch MonsterBuffAndDebuffStopWatch = new();
     private readonly Stopwatch _threatControl = new();
     private readonly object _walkLock = new();
 
@@ -90,10 +91,10 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
     public bool CantAttack => (IsFrozen || IsStopped || IsSleeping || IsCharmed);
     public bool CantMove => (IsFrozen || IsStopped || IsSleeping || IsBeagParalyzed);
     public bool HasDoT => (IsBleeding || IsPoisoned);
-    private int CheckHp => BaseHp + BonusHp;
-    public int MaximumHp => Math.Clamp(CheckHp, 0, int.MaxValue);
-    private int CheckMp => BaseMp + BonusMp;
-    public int MaximumMp => Math.Clamp(CheckMp, 0, int.MaxValue);
+    private long CheckHp => Math.Clamp(BaseHp + BonusHp, 0, long.MaxValue);
+    public long MaximumHp => Math.Clamp(CheckHp, 0, long.MaxValue);
+    private long CheckMp => Math.Clamp(BaseMp + BonusMp, 0, long.MaxValue);
+    public long MaximumMp => Math.Clamp(CheckMp, 0, long.MaxValue);
     public int Regen => (_Regen + BonusRegen).IntClamp(1, 150);
     public int Dmg => _Dmg + BonusDmg;
     public double SealedModifier { get; set; }
@@ -142,19 +143,19 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
     };
 
     private static readonly int[][] Directions =
-    {
-        new[] { +0, -1 },
-        new[] { +1, +0 },
-        new[] { +0, +1 },
-        new[] { -1, +0 }
-    };
+    [
+        [+0, -1],
+        [+1, +0],
+        [+0, +1],
+        [-1, +0]
+    ];
 
     private static int[][] DirectionTable { get; } =
-    {
-        new[] { -1, +3, -1 },
-        new[] { +0, -1, +2 },
-        new[] { -1, +1, -1 }
-    };
+    [
+        [-1, +3, -1],
+        [+0, -1, +2],
+        [-1, +1, -1]
+    ];
 
     private double TargetDistance { get; set; }
 
@@ -175,8 +176,8 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         Amplified = 0;
         SealedModifier = 0;
         Target = null;
-        Buffs = new ConcurrentDictionary<string, Buff>();
-        Debuffs = new ConcurrentDictionary<string, Debuff>();
+        Buffs = [];
+        Debuffs = [];
         LastTargetAcquired = readyTime;
         LastMovementChanged = readyTime;
         LastTurnUpdated = readyTime;
@@ -223,13 +224,13 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
 
     #region Stats
 
-    public int CurrentHp { get; set; }
-    public int BaseHp { get; set; }
-    public int BonusHp { get; set; }
+    public long CurrentHp { get; set; }
+    public long BaseHp { get; set; }
+    public long BonusHp { get; set; }
 
-    public int CurrentMp { get; set; }
-    public int BaseMp { get; set; }
-    public int BonusMp { get; set; }
+    public long CurrentMp { get; set; }
+    public long BaseMp { get; set; }
+    public long BonusMp { get; set; }
 
     public int _Regen { get; set; }
     public int BonusRegen { get; set; }
@@ -270,7 +271,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
 
     public bool CanBeAttackedHere(Sprite source)
     {
-        if (source is not Sprites.Aisling || this is not Sprites.Aisling) return true;
+        if (source is not Aisling || this is not Aisling) return true;
         if (CurrentMapId <= 0 || !ServerSetup.Instance.GlobalMapCache.TryGetValue(CurrentMapId, out var value)) return true;
 
         return value.Flags.MapFlagIsSet(MapFlags.PlayerKill);
@@ -294,6 +295,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         if (this is Aisling aisling)
         {
             nearbyAisling.Client.SendDisplayAisling(aisling);
+            aisling.SpritesInView.AddOrUpdate(nearbyAisling.Serial, nearbyAisling, (_, _) => nearbyAisling);
         }
         else
         {
@@ -302,7 +304,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         }
     }
 
-    private IEnumerable<Sprite> GetInFrontToSide(int tileCount = 1)
+    public List<Sprite> GetInFrontToSide(int tileCount = 1)
     {
         var results = new List<Sprite>();
 
@@ -344,7 +346,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         return results;
     }
 
-    private IEnumerable<Sprite> MonsterGetInFrontToSide(int tileCount = 1)
+    public List<Sprite> MonsterGetInFrontToSide(int tileCount = 1)
     {
         var results = new List<Sprite>();
 
@@ -386,7 +388,122 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         return results;
     }
 
-    private IEnumerable<Sprite> GetHorizontalInFront(int tileCount = 1)
+    public List<Sprite> MonsterGetFiveByFourRectInFront()
+    {
+        var results = new List<Sprite>();
+
+        switch (Direction)
+        {
+            // North
+            case 0:
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X, (int)Pos.Y - 1));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 1, (int)Pos.Y - 1));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 2, (int)Pos.Y - 1));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 1, (int)Pos.Y - 1));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 2, (int)Pos.Y - 1));
+
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X, (int)Pos.Y - 2));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 1, (int)Pos.Y - 2));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 2, (int)Pos.Y - 2));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 1, (int)Pos.Y - 2));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 2, (int)Pos.Y - 2));
+
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X, (int)Pos.Y - 3));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 1, (int)Pos.Y - 3));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 2, (int)Pos.Y - 3));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 1, (int)Pos.Y - 3));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 2, (int)Pos.Y - 3));
+
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X, (int)Pos.Y - 4));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 1, (int)Pos.Y - 4));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 2, (int)Pos.Y - 4));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 1, (int)Pos.Y - 4));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 2, (int)Pos.Y - 4));
+                break;
+            // East
+            case 1:
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 1, (int)Pos.Y));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 1, (int)Pos.Y + 1));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 1, (int)Pos.Y + 2));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 1, (int)Pos.Y - 1));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 1, (int)Pos.Y - 2));
+
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 2, (int)Pos.Y));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 2, (int)Pos.Y + 1));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 2, (int)Pos.Y + 2));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 2, (int)Pos.Y - 1));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 2, (int)Pos.Y - 2));
+
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 3, (int)Pos.Y));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 3, (int)Pos.Y + 1));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 3, (int)Pos.Y + 2));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 3, (int)Pos.Y - 1));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 3, (int)Pos.Y - 2));
+
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 4, (int)Pos.Y));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 4, (int)Pos.Y + 1));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 4, (int)Pos.Y + 2));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 4, (int)Pos.Y - 1));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 4, (int)Pos.Y - 2));
+                break;
+            // South
+            case 2:
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X, (int)Pos.Y + 1));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 1, (int)Pos.Y + 1));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 2, (int)Pos.Y + 1));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 1, (int)Pos.Y + 1));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 2, (int)Pos.Y + 1));
+
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X, (int)Pos.Y + 2));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 1, (int)Pos.Y + 2));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 2, (int)Pos.Y + 2));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 1, (int)Pos.Y + 2));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 2, (int)Pos.Y + 2));
+
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X, (int)Pos.Y + 3));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 1, (int)Pos.Y + 3));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 2, (int)Pos.Y + 3));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 1, (int)Pos.Y + 3));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 2, (int)Pos.Y + 3));
+
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X, (int)Pos.Y + 4));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 1, (int)Pos.Y + 4));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X + 2, (int)Pos.Y + 4));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 1, (int)Pos.Y + 4));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 2, (int)Pos.Y + 4));
+                break;
+            // West
+            case 3:
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 1, (int)Pos.Y));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 1, (int)Pos.Y + 1));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 1, (int)Pos.Y + 2));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 1, (int)Pos.Y - 1));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 1, (int)Pos.Y - 2));
+
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 2, (int)Pos.Y));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 2, (int)Pos.Y + 1));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 2, (int)Pos.Y + 2));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 2, (int)Pos.Y - 1));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 2, (int)Pos.Y - 2));
+
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 3, (int)Pos.Y));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 3, (int)Pos.Y + 1));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 3, (int)Pos.Y + 2));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 3, (int)Pos.Y - 1));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 3, (int)Pos.Y - 2));
+
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 4, (int)Pos.Y));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 4, (int)Pos.Y + 1));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 4, (int)Pos.Y + 2));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 4, (int)Pos.Y - 1));
+                results.AddRange(MonsterGetDamageableSprites((int)Pos.X - 4, (int)Pos.Y - 2));
+                break;
+        }
+
+        return results;
+    }
+
+    public List<Sprite> GetHorizontalInFront(int tileCount = 1)
     {
         var results = new List<Sprite>();
 
@@ -420,7 +537,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         return results;
     }
 
-    private Position GetFromAllSidesEmpty(Sprite target, int tileCount = 1)
+    public Position GetFromAllSidesEmpty(Sprite target, int tileCount = 1)
     {
         var empty = Position;
         var blocks = target.Position.SurroundingContent(Map);
@@ -436,7 +553,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         return empty;
     }
 
-    private IEnumerable<Sprite> GetAllInFront(int tileCount = 1)
+    public List<Sprite> GetAllInFront(int tileCount = 1)
     {
         var results = new List<Sprite>();
 
@@ -463,7 +580,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         return results;
     }
 
-    private IEnumerable<Sprite> DamageableGetInFront(int tileCount = 1)
+    public List<Sprite> DamageableGetInFront(int tileCount = 1)
     {
         var results = new List<Sprite>();
 
@@ -490,7 +607,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         return results;
     }
 
-    private IEnumerable<Position> GetTilesInFront(int tileCount = 1)
+    public List<Position> GetTilesInFront(int tileCount = 1)
     {
         var results = new List<Position>();
 
@@ -517,7 +634,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         return results;
     }
 
-    private IEnumerable<Sprite> DamageableGetAwayInFront(int tileCount = 2)
+    public List<Sprite> DamageableGetAwayInFront(int tileCount = 2)
     {
         var results = new List<Sprite>();
 
@@ -544,7 +661,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         return results;
     }
 
-    private IEnumerable<Sprite> DamageableGetBehind(int tileCount = 1)
+    public List<Sprite> DamageableGetBehind(int tileCount = 1)
     {
         var results = new List<Sprite>();
 
@@ -571,7 +688,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         return results;
     }
 
-    private IEnumerable<Sprite> MonsterGetInFront(int tileCount = 1)
+    public List<Sprite> MonsterGetInFront(int tileCount = 1)
     {
         var results = new List<Sprite>();
 
@@ -598,20 +715,48 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         return results;
     }
 
-    public List<Sprite> GetAllInFront(Sprite sprite, int tileCount = 1) => GetAllInFront(tileCount).Where(i => i != null && i.Serial != sprite.Serial).ToList();
-    public List<Sprite> GetAllInFront(int tileCount = 1, bool intersect = false) => GetAllInFront(tileCount).ToList();
-    public List<Sprite> DamageableGetInFront(int tileCount = 1, bool intersect = false) => DamageableGetInFront(tileCount).ToList();
-    public List<Position> GetTilesInFront(int tileCount = 1, bool intersect = false) => GetTilesInFront(tileCount).ToList();
-    public List<Sprite> DamageableGetAwayInFront(int tileCount = 2, bool intersect = false) => DamageableGetAwayInFront(tileCount).ToList();
-    public List<Sprite> DamageableGetBehind(int tileCount = 1, bool intersect = false) => DamageableGetBehind(tileCount).ToList();
-    public List<Sprite> MonsterGetInFront(int tileCount = 1, bool intersect = false) => MonsterGetInFront(tileCount).ToList();
-    public List<Sprite> MonsterGetInFrontToSide(int tileCount = 1, bool intersect = false) => MonsterGetInFrontToSide(tileCount).ToList();
-    public List<Sprite> GetInFrontToSide(int tileCount = 1, bool intersect = false) => GetInFrontToSide(tileCount).ToList();
-    public List<Sprite> GetHorizontalInFront(int tileCount = 1, bool intersect = false) => GetHorizontalInFront(tileCount).ToList();
-    public Position GetFromAllSidesEmpty(Sprite sprite, Sprite target, int tileCount = 1) => GetFromAllSidesEmpty(target, tileCount);
-    public Position GetFromAllSidesEmpty(Sprite target, int tileCount = 1, bool intersect = false) => GetFromAllSidesEmpty(target, tileCount);
-
     public Position GetPendingChargePosition(int warp, Sprite sprite)
+    {
+        var pendingX = X;
+        var pendingY = Y;
+
+        for (var i = 0; i < warp; i++)
+        {
+            if (Direction == 0)
+                pendingY--;
+            if (!sprite.Map.IsWall(pendingX, pendingY)) continue;
+            pendingY++;
+            break;
+        }
+        for (var i = 0; i < warp; i++)
+        {
+            if (Direction == 1)
+                pendingX++;
+            if (!sprite.Map.IsWall(pendingX, pendingY)) continue;
+            pendingX--;
+            break;
+        }
+        for (var i = 0; i < warp; i++)
+        {
+            if (Direction == 2)
+                pendingY++;
+            if (!sprite.Map.IsWall(pendingX, pendingY)) continue;
+            pendingY--;
+            break;
+        }
+        for (var i = 0; i < warp; i++)
+        {
+            if (Direction == 3)
+                pendingX--;
+            if (!sprite.Map.IsWall(pendingX, pendingY)) continue;
+            pendingX++;
+            break;
+        }
+
+        return new Position(pendingX, pendingY);
+    }
+
+    public Position GetPendingChargePositionNoTarget(int warp, Sprite sprite)
     {
         var pendingX = X;
         var pendingY = Y;
@@ -768,7 +913,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
     public bool WithinDistanceOf(int x, int y, int subjectLength) => DistanceFrom(x, y) < subjectLength;
 
     public Aisling[] AislingsNearby() => GetObjects<Aisling>(Map, i => i != null && i.WithinRangeOf(this, ServerSetup.Instance.Config.WithinRangeProximity)).ToArray();
-    public Aisling[] AislingsEarShotNearby() => GetObjects<Aisling>(Map, i => i != null && i.WithinRangeOf(this, 16)).ToArray();
+    public Aisling[] AislingsEarShotNearby() => GetObjects<Aisling>(Map, i => i != null && i.WithinRangeOf(this, 14)).ToArray();
     public Aisling[] AislingsOnMap() => GetObjects<Aisling>(Map, i => i != null && Map == i.Map).ToArray();
     public IEnumerable<Monster> MonstersNearby() => GetObjects<Monster>(Map, i => i != null && i.WithinRangeOf(this, ServerSetup.Instance.Config.WithinRangeProximity));
     public IEnumerable<Monster> MonstersOnMap() => GetObjects<Monster>(Map, i => i != null);
@@ -928,6 +1073,10 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
             // Commit Walk to other Player Clients
             Step0C(currentPosX, currentPosY);
 
+            // Check Trap Activation
+            if (this is Monster trapCheck)
+                CheckTraps(trapCheck);
+
             // Reset our PendingX & PendingY
             PendingX = currentPosX;
             PendingY = currentPosY;
@@ -960,7 +1109,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
             }
             catch (Exception ex)
             {
-                ServerSetup.Logger($"{ex}\nUnknown exception in WalkTo method.");
+                ServerSetup.EventsLogger($"{ex}\nUnknown exception in WalkTo method.");
                 Crashes.TrackError(ex);
             }
 
@@ -1011,6 +1160,20 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         }
 
         LastTurnUpdated = DateTime.UtcNow;
+    }
+
+    public void CheckTraps(Monster monster)
+    {
+        foreach (var trap in ServerSetup.Instance.Traps.Values.Where(t => t.TrapItem.Map.ID == monster.Map.ID))
+        {
+            if (trap.Owner == null || trap.Owner.Serial == monster.Serial ||
+                monster.X != trap.Location.X || monster.Y != trap.Location.Y) continue;
+
+            var triggered = Trap.Activate(trap, monster);
+            if (!triggered) continue;
+            ServerSetup.Instance.Traps.TryRemove(trap.Serial, out _);
+            break;
+        }
     }
 
     public void Turn()
@@ -1143,7 +1306,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
             dmg += (long)GetBaseDamage(damageDealingSprite, this, MonsterEnums.Physical);
         }
 
-        ApplyAffliction(this, damageDealingSprite);
+        //ApplyAffliction(this, damageDealingSprite);
 
         // Apply modifiers for attacker
         dmg = ApplyPhysicalModifier();
@@ -1218,133 +1381,133 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
             return dmg;
         }
 
-        void ApplyAffliction(Sprite afflicted, Sprite attacker)
-        {
-            if (afflicted is not Aisling aisling) return;
-            if (attacker is not Monster monster) return;
-            if (attacker.Level <= 249) return;
-            var affliction = Generator.RandomEnumValue<Afflictions>();
-            var rand = Generator.RandomNumPercentGen();
-            switch (affliction)
-            {
-                case Afflictions.Normal:
-                case Afflictions.Lycanisim:
-                case Afflictions.Vampirisim:
-                case Afflictions.Diseased:
-                case Afflictions.Hallowed:
-                case Afflictions.Petrified:
-                    return;
-                case Afflictions.Plagued:
-                    if (monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Fungi) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Ooze) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Insect) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Plant) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Rodent) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Undead))
-                    {
-                        if (rand >= .9993)
-                        {
-                            var debuff = new Plagued();
-                            aisling.Client.EnqueueDebuffAppliedEvent(aisling, debuff, TimeSpan.FromSeconds(debuff.Length));
-                        }
-                    }
-                    break;
-                case Afflictions.TheShakes:
-                    if (monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Aberration) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Celestial) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Demon) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Dragon) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Elemental) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Robotic) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Shadow) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Giant))
-                    {
-                        if (rand >= .9993)
-                        {
-                            var debuff = new TheShakes();
-                            aisling.Client.EnqueueDebuffAppliedEvent(aisling, debuff, TimeSpan.FromSeconds(debuff.Length));
-                        }
-                    }
-                    break;
-                case Afflictions.Stricken:
-                    if (monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Aquatic) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Contruct) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Fairy) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Fiend) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Gargoyle) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Goblin) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Grimlok) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Humanoid) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Insect) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Kobold) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Magical) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Mukul) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Plant) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Reptile) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Rodent) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Undead))
-                    {
-                        if (rand >= .9995)
-                        {
-                            var debuff = new Stricken();
-                            aisling.Client.EnqueueDebuffAppliedEvent(aisling, debuff, TimeSpan.FromSeconds(debuff.Length));
-                        }
-                    }
-                    break;
-                case Afflictions.Rabies:
-                    if (monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Animal) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Beast) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Fiend) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Kobold) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Rodent))
-                    {
-                        if (rand >= .9997)
-                        {
-                            var debuff = new Rabies();
-                            aisling.Client.EnqueueDebuffAppliedEvent(aisling, debuff, TimeSpan.FromSeconds(debuff.Length));
-                        }
-                    }
-                    break;
-                case Afflictions.LockJoint:
-                    if (monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Aberration) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Aquatic) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Beast) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Contruct) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Dragon) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Gargoyle) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Giant) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Humanoid) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Orc) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Plant) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Robotic) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Rodent) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Undead))
-                    {
-                        if (rand >= .9993)
-                        {
-                            var debuff = new LockJoint();
-                            aisling.Client.EnqueueDebuffAppliedEvent(aisling, debuff, TimeSpan.FromSeconds(debuff.Length));
-                        }
-                    }
-                    break;
-                case Afflictions.NumbFall:
-                    if (monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.HigherBeing) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Contruct) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Elemental) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Humanoid) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Magical) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Mukul) ||
-                        monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Reptile))
-                    {
-                        if (rand >= .9995)
-                        {
-                            var debuff = new NumbFall();
-                            aisling.Client.EnqueueDebuffAppliedEvent(aisling, debuff, TimeSpan.FromSeconds(debuff.Length));
-                        }
-                    }
-                    break;
-            }
-        }
+        //void ApplyAffliction(Sprite afflicted, Sprite attacker)
+        //{
+        //    if (afflicted is not Aisling aisling) return;
+        //    if (attacker is not Monster monster) return;
+        //    if (attacker.Level <= 249) return;
+        //    var affliction = Generator.RandomEnumValue<Afflictions>();
+        //    var rand = Generator.RandomNumPercentGen();
+        //    switch (affliction)
+        //    {
+        //        case Afflictions.Normal:
+        //        case Afflictions.Lycanisim:
+        //        case Afflictions.Vampirisim:
+        //        case Afflictions.Diseased:
+        //        case Afflictions.Hallowed:
+        //        case Afflictions.Petrified:
+        //            return;
+        //        case Afflictions.Plagued:
+        //            if (monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Fungi) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Ooze) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Insect) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Plant) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Rodent) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Undead))
+        //            {
+        //                if (rand >= .9993)
+        //                {
+        //                    var debuff = new Plagued();
+        //                    aisling.Client.EnqueueDebuffAppliedEvent(aisling, debuff, TimeSpan.FromSeconds(debuff.Length));
+        //                }
+        //            }
+        //            break;
+        //        case Afflictions.TheShakes:
+        //            if (monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Aberration) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Celestial) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Demon) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Dragon) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Elemental) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Robotic) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Shadow) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Giant))
+        //            {
+        //                if (rand >= .9993)
+        //                {
+        //                    var debuff = new TheShakes();
+        //                    aisling.Client.EnqueueDebuffAppliedEvent(aisling, debuff, TimeSpan.FromSeconds(debuff.Length));
+        //                }
+        //            }
+        //            break;
+        //        case Afflictions.Stricken:
+        //            if (monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Aquatic) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Contruct) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Fairy) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Fiend) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Gargoyle) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Goblin) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Grimlok) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Humanoid) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Insect) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Kobold) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Magical) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Mukul) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Plant) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Reptile) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Rodent) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Undead))
+        //            {
+        //                if (rand >= .9995)
+        //                {
+        //                    var debuff = new Stricken();
+        //                    aisling.Client.EnqueueDebuffAppliedEvent(aisling, debuff, TimeSpan.FromSeconds(debuff.Length));
+        //                }
+        //            }
+        //            break;
+        //        case Afflictions.Rabies:
+        //            if (monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Animal) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Beast) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Fiend) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Kobold) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Rodent))
+        //            {
+        //                if (rand >= .9997)
+        //                {
+        //                    var debuff = new Rabies();
+        //                    aisling.Client.EnqueueDebuffAppliedEvent(aisling, debuff, TimeSpan.FromSeconds(debuff.Length));
+        //                }
+        //            }
+        //            break;
+        //        case Afflictions.LockJoint:
+        //            if (monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Aberration) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Aquatic) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Beast) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Contruct) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Dragon) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Gargoyle) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Giant) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Humanoid) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Orc) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Plant) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Robotic) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Rodent) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Undead))
+        //            {
+        //                if (rand >= .9993)
+        //                {
+        //                    var debuff = new LockJoint();
+        //                    aisling.Client.EnqueueDebuffAppliedEvent(aisling, debuff, TimeSpan.FromSeconds(debuff.Length));
+        //                }
+        //            }
+        //            break;
+        //        case Afflictions.NumbFall:
+        //            if (monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.HigherBeing) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Contruct) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Elemental) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Humanoid) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Magical) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Mukul) ||
+        //                monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Reptile))
+        //            {
+        //                if (rand >= .9995)
+        //                {
+        //                    var debuff = new NumbFall();
+        //                    aisling.Client.EnqueueDebuffAppliedEvent(aisling, debuff, TimeSpan.FromSeconds(debuff.Length));
+        //                }
+        //            }
+        //            break;
+        //    }
+        //}
     }
 
     public void ApplyTrapDamage(Sprite damageDealingSprite, long dmg, byte sound)
@@ -1364,14 +1527,14 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         }
 
         if (IsAited && dmg > 100)
-            dmg -= (int)(dmg * ServerSetup.Instance.Config.AiteDamageReductionMod);
+            dmg -= (long)(dmg * ServerSetup.Instance.Config.AiteDamageReductionMod);
 
         dmg = LuckModifier(dmg);
 
         if (CurrentHp > MaximumHp)
             CurrentHp = MaximumHp;
 
-        CurrentHp -= (int)dmg;
+        CurrentHp -= dmg;
 
         if (damageDealingSprite is Aisling aisling)
         {
@@ -1395,7 +1558,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
             PlayerNearby?.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendHealthBar(this, sound));
 
         if (dmg > 50)
-            ApplyEquipmentDurability((int)dmg);
+            ApplyEquipmentDurability(dmg);
 
         OnDamaged(damageDealingSprite, dmg);
         return;
@@ -1409,8 +1572,8 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
 
         long PainBane()
         {
-            if (damageDealingSprite is not Aisling aisling) return dmg;
-            if (aisling.PainBane)
+            if (damageDealingSprite is not Aisling aisling2) return dmg;
+            if (aisling2.PainBane)
                 return (long)(dmg * 0.95);
             return dmg;
         }
@@ -1823,7 +1986,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         if (sprite is not Aisling damageDealingSprite) return;
         var client = damageDealingSprite.Client;
 
-        var enemy = client.Aisling.DamageableGetInFront(1);
+        var enemy = client.Aisling.DamageableGetInFront();
         var target = enemy.FirstOrDefault();
         var aegisChance = Generator.RandNumGen100();
         var bleedingChance = Generator.RandNumGen100();
@@ -1844,7 +2007,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
                 {
                     var buff = new buff_spell_reflect();
                     if (!damageDealingSprite.HasBuff(buff.Name)) damageDealingSprite.Client.EnqueueBuffAppliedEvent(damageDealingSprite, buff, TimeSpan.FromSeconds(buff.Length));
-                    client.SendServerMessage(ServerMessageType.ActiveMessage, "The effects of your weapon surround you.");
+                    client.SendServerMessage(ServerMessageType.ActiveMessage, "A flash of light surrounds you, shielding you.");
                     damageDealingSprite.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendAnimation(83, null, damageDealingSprite.Serial));
                     break;
                 }
@@ -1852,36 +2015,8 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
                 {
                     var buff = new buff_spell_reflect();
                     if (!damageDealingSprite.HasBuff(buff.Name)) damageDealingSprite.Client.EnqueueBuffAppliedEvent(damageDealingSprite, buff, TimeSpan.FromSeconds(buff.Length));
-                    client.SendServerMessage(ServerMessageType.ActiveMessage, "The effects of your weapon surround you.");
+                    client.SendServerMessage(ServerMessageType.ActiveMessage, "A flash of light surrounds you, shielding you.");
                     damageDealingSprite.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendAnimation(83, null, damageDealingSprite.Serial));
-                    break;
-                }
-        }
-
-        switch (damageDealingSprite.Vampirism)
-        {
-            case 1 when vampChance >= 99:
-                {
-                    const double absorbPct = 0.07;
-                    var absorb = absorbPct * dmg;
-                    damageDealingSprite.CurrentHp += (int)absorb;
-                    if (target?.CurrentHp >= (int)absorb)
-                        target.CurrentHp -= (int)absorb;
-                    client.SendAttributes(StatUpdateType.Vitality);
-                    client.SendServerMessage(ServerMessageType.ActiveMessage, "Your weapon is hungry....");
-                    damageDealingSprite.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendAnimation(324, null, damageDealingSprite.Serial));
-                    break;
-                }
-            case 2 when vampChance >= 97:
-                {
-                    const double absorbPct = 0.14;
-                    var absorb = absorbPct * dmg;
-                    damageDealingSprite.CurrentHp += (int)absorb;
-                    if (target?.CurrentHp >= (int)absorb)
-                        target.CurrentHp -= (int)absorb;
-                    client.SendAttributes(StatUpdateType.Vitality);
-                    client.SendServerMessage(ServerMessageType.ActiveMessage, "Your weapon is hungry....");
-                    damageDealingSprite.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendAnimation(324, null, damageDealingSprite.Serial));
                     break;
                 }
         }
@@ -1892,6 +2027,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
                 {
                     var buff = new buff_Haste();
                     damageDealingSprite.Client.EnqueueBuffAppliedEvent(damageDealingSprite, buff, TimeSpan.FromSeconds(buff.Length));
+                    client.SendServerMessage(ServerMessageType.ActiveMessage, "Things begin to slow down around you.");
                     damageDealingSprite.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendAnimation(291, null, damageDealingSprite.Serial));
                     break;
                 }
@@ -1899,6 +2035,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
                 {
                     var buff = new buff_Hasten();
                     damageDealingSprite.Client.EnqueueBuffAppliedEvent(damageDealingSprite, buff, TimeSpan.FromSeconds(buff.Length));
+                    client.SendServerMessage(ServerMessageType.ActiveMessage, "Things begin to really slow down around you.");
                     damageDealingSprite.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendAnimation(291, null, damageDealingSprite.Serial));
                     break;
                 }
@@ -1906,25 +2043,207 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
 
         // The below procs are separated out by these checks to reduce complexity
         if (target == null) return;
-        if (damageDealingSprite.Rending == 0 && damageDealingSprite.Bleeding == 0 && damageDealingSprite.Reaping == 0
+        if (damageDealingSprite.Vampirism == 0 && damageDealingSprite.Rending == 0 && damageDealingSprite.Bleeding == 0 && damageDealingSprite.Reaping == 0
             && damageDealingSprite.Gust == 0 && damageDealingSprite.Quake == 0 && damageDealingSprite.Rain == 0
             && damageDealingSprite.Flame == 0 && damageDealingSprite.Dusk == 0 && damageDealingSprite.Dawn == 0) return;
+
+        switch (damageDealingSprite.Vampirism)
+        {
+            case 1 when vampChance >= 99:
+                {
+                    switch (target)
+                    {
+                        case Aisling:
+                        case Monster monster when monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.Boss)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.MiniBoss)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineDex)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineCon)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineWis)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineInt)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineStr)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.Forsaken):
+                            client.SendServerMessage(ServerMessageType.ActiveMessage, "Vampiring doesn't seem to work on them");
+                            return;
+                    }
+
+                    if (target.Level >= 15 + damageDealingSprite.ExpLevel)
+                    {
+                        client.SendServerMessage(ServerMessageType.ActiveMessage, "Vampiring doesn't seem to be effective. (Level too high)");
+                        return;
+                    }
+
+                    const double absorbPct = 0.07;
+                    var absorb = absorbPct * dmg;
+                    damageDealingSprite.CurrentHp += (int)absorb;
+                    if (target.CurrentHp >= (int)absorb)
+                        target.CurrentHp -= (int)absorb;
+                    client.SendAttributes(StatUpdateType.Vitality);
+                    client.SendServerMessage(ServerMessageType.ActiveMessage, "Your weapon is hungry....life force.. - it whispers");
+                    damageDealingSprite.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendAnimation(324, null, damageDealingSprite.Serial));
+                    break;
+                }
+            case 2 when vampChance >= 97:
+                {
+                    switch (target)
+                    {
+                        case Aisling:
+                        case Monster monster when monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.Boss)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.MiniBoss)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineDex)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineCon)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineWis)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineInt)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineStr)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.Forsaken):
+                            client.SendServerMessage(ServerMessageType.ActiveMessage, "Vampiring doesn't seem to work on them");
+                            return;
+                    }
+
+                    if (target.Level >= 20 + damageDealingSprite.ExpLevel)
+                    {
+                        client.SendServerMessage(ServerMessageType.ActiveMessage, "Vampiring doesn't seem to be effective. (Level too high)");
+                        return;
+                    }
+
+                    const double absorbPct = 0.14;
+                    var absorb = absorbPct * dmg;
+                    damageDealingSprite.CurrentHp += (int)absorb;
+                    if (target.CurrentHp >= (int)absorb)
+                        target.CurrentHp -= (int)absorb;
+                    client.SendAttributes(StatUpdateType.Vitality);
+                    client.SendServerMessage(ServerMessageType.ActiveMessage, "Your weapon is hungry....life force.. - it whispers");
+                    damageDealingSprite.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendAnimation(324, null, damageDealingSprite.Serial));
+                    break;
+                }
+        }
+
+        switch (damageDealingSprite.Ghosting)
+        {
+            case 1 when vampChance >= 99:
+                {
+                    switch (target)
+                    {
+                        case Aisling:
+                        case Monster monster when monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.Boss)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.MiniBoss)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineDex)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineCon)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineWis)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineInt)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineStr)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.Forsaken):
+                            client.SendServerMessage(ServerMessageType.ActiveMessage, "Siphon doesn't seem to work on them");
+                            return;
+                    }
+
+                    if (target.Level >= 15 + damageDealingSprite.ExpLevel)
+                    {
+                        client.SendServerMessage(ServerMessageType.ActiveMessage, "Siphon doesn't seem to be effective. (Level too high)");
+                        return;
+                    }
+
+                    const double absorbPct = 0.07;
+                    var absorb = absorbPct * dmg;
+                    damageDealingSprite.CurrentMp += (int)absorb;
+                    if (target.CurrentMp >= (int)absorb)
+                        target.CurrentMp -= (int)absorb;
+                    client.SendAttributes(StatUpdateType.Vitality);
+                    client.SendServerMessage(ServerMessageType.ActiveMessage, "Your weapon phases in and out of reality");
+                    damageDealingSprite.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendAnimation(61, null, damageDealingSprite.Serial));
+                    break;
+                }
+            case 2 when vampChance >= 97:
+                {
+                    switch (target)
+                    {
+                        case Aisling:
+                        case Monster monster when monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.Boss)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.MiniBoss)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineDex)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineCon)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineWis)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineInt)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineStr)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.Forsaken):
+                            client.SendServerMessage(ServerMessageType.ActiveMessage, "Siphon doesn't seem to work on them");
+                            return;
+                    }
+
+                    if (target.Level >= 20 + damageDealingSprite.ExpLevel)
+                    {
+                        client.SendServerMessage(ServerMessageType.ActiveMessage, "Siphon doesn't seem to be effective. (Level too high)");
+                        return;
+                    }
+
+                    const double absorbPct = 0.14;
+                    var absorb = absorbPct * dmg;
+                    damageDealingSprite.CurrentMp += (int)absorb;
+                    if (target.CurrentMp >= (int)absorb)
+                        target.CurrentMp -= (int)absorb;
+                    client.SendAttributes(StatUpdateType.Vitality);
+                    client.SendServerMessage(ServerMessageType.ActiveMessage, "Your weapon phases in and out of reality");
+                    damageDealingSprite.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendAnimation(61, null, damageDealingSprite.Serial));
+                    break;
+                }
+        }
 
         switch (damageDealingSprite.Bleeding)
         {
             case 1 when bleedingChance >= 99:
                 {
+                    switch (target)
+                    {
+                        case Aisling:
+                        case Monster monster when monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.Boss)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.MiniBoss)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineDex)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineCon)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineWis)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineInt)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineStr)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.Forsaken):
+                            client.SendServerMessage(ServerMessageType.ActiveMessage, "Bleeding doesn't seem to work on them");
+                            return;
+                    }
+
+                    if (target.Level >= 15 + damageDealingSprite.ExpLevel)
+                    {
+                        client.SendServerMessage(ServerMessageType.ActiveMessage, "Bleeding doesn't seem to be effective. (Level too high)");
+                        return;
+                    }
+
                     var deBuff = new DebuffBleeding();
                     if (!target.HasDebuff(deBuff.Name)) damageDealingSprite.Client.EnqueueDebuffAppliedEvent(target, deBuff, TimeSpan.FromSeconds(deBuff.Length));
-                    client.SendServerMessage(ServerMessageType.ActiveMessage, "Your weapon has caused your target to bleed.");
+                    client.SendServerMessage(ServerMessageType.ActiveMessage, "The enemy has begun to bleed.");
                     damageDealingSprite.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendAnimation(105, null, target.Serial));
                     break;
                 }
             case 2 when bleedingChance >= 97:
                 {
+                    switch (target)
+                    {
+                        case Aisling:
+                        case Monster monster when monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.Boss)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.MiniBoss)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineDex)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineCon)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineWis)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineInt)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineStr)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.Forsaken):
+                            client.SendServerMessage(ServerMessageType.ActiveMessage, "Bleeding doesn't seem to work on them");
+                            return;
+                    }
+
+                    if (target.Level >= 20 + damageDealingSprite.ExpLevel)
+                    {
+                        client.SendServerMessage(ServerMessageType.ActiveMessage, "Bleeding doesn't seem to be effective. (Level too high)");
+                        return;
+                    }
+
                     var deBuff = new DebuffBleeding();
                     if (!target.HasDebuff(deBuff.Name)) damageDealingSprite.Client.EnqueueDebuffAppliedEvent(target, deBuff, TimeSpan.FromSeconds(deBuff.Length));
-                    client.SendServerMessage(ServerMessageType.ActiveMessage, "The weapon has caused your target to bleed.");
+                    client.SendServerMessage(ServerMessageType.ActiveMessage, "The enemy has begun to bleed.");
                     damageDealingSprite.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendAnimation(105, null, target.Serial));
                     break;
                 }
@@ -1936,7 +2255,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
                 {
                     var deBuff = new DebuffRending();
                     if (!target.HasDebuff(deBuff.Name)) damageDealingSprite.Client.EnqueueDebuffAppliedEvent(target, deBuff, TimeSpan.FromSeconds(deBuff.Length));
-                    client.SendServerMessage(ServerMessageType.ActiveMessage, "Your weapon has inflicted a minor curse.");
+                    client.SendServerMessage(ServerMessageType.ActiveMessage, "You temporarily found a weakness! Exploit it!");
                     damageDealingSprite.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendAnimation(160, null, target.Serial));
                     break;
                 }
@@ -1944,7 +2263,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
                 {
                     var deBuff = new DebuffRending();
                     if (!target.HasDebuff(deBuff.Name)) damageDealingSprite.Client.EnqueueDebuffAppliedEvent(target, deBuff, TimeSpan.FromSeconds(deBuff.Length));
-                    client.SendServerMessage(ServerMessageType.ActiveMessage, "Your weapon has inflicted a minor curse.");
+                    client.SendServerMessage(ServerMessageType.ActiveMessage, "You temporarily found a weakness! Exploit it!");
                     damageDealingSprite.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendAnimation(160, null, target.Serial));
                     break;
                 }
@@ -1957,7 +2276,14 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
                     switch (target)
                     {
                         case Aisling:
-                        case Monster monster when monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.Boss):
+                        case Monster monster when monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.Boss)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.MiniBoss)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineDex)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineCon)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineWis)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineInt)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineStr)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.Forsaken):
                             client.SendServerMessage(ServerMessageType.ActiveMessage, "Death doesn't seem to work on them");
                             return;
                     }
@@ -1978,7 +2304,14 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
                     switch (target)
                     {
                         case Aisling:
-                        case Monster monster when monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.Boss):
+                        case Monster monster when monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.Boss)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.MiniBoss)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineDex)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineCon)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineWis)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineInt)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.DivineStr)
+                                                  || monster.Template.MonsterType.MonsterTypeIsSet(MonsterType.Forsaken):
                             client.SendServerMessage(ServerMessageType.ActiveMessage, "Death doesn't seem to work on them");
                             return;
                     }
@@ -2201,15 +2534,7 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
 
         var dmgApplied = (long)Math.Abs(dmg * amplifier);
         var finalDmg = LevelDamageMitigation(damageDealingSprite, dmgApplied);
-
-        // Over damage converts to max integer
-        if (finalDmg > int.MaxValue)
-        {
-            finalDmg = int.MaxValue;
-        }
-
-        var convDmg = (int)finalDmg;
-        CurrentHp -= convDmg;
+        CurrentHp -= finalDmg;
 
         if (this is Aisling aisling)
         {
@@ -2220,10 +2545,10 @@ public abstract class Sprite : ObjectManager, INotifyPropertyChanged, ISprite
         else
             PlayerNearby?.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendHealthBar(this, sound));
 
-        return convDmg;
+        return finalDmg;
     }
 
-    public void ApplyEquipmentDurability(int dmg)
+    public void ApplyEquipmentDurability(long dmg)
     {
         if (this is Aisling aisling && aisling.EquipmentDamageTaken++ % 2 == 0 && dmg > 100)
             aisling.EquipmentManager.DecreaseDurability();

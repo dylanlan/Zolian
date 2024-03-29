@@ -45,7 +45,7 @@ public interface IServerContext
     FrozenDictionary<uint, string> GlobalKnownGoodActorsCache { get; set; }
     Dictionary<uint, string> TempGlobalKnownGoodActorsCache { get; set; }
     FrozenDictionary<int, Area> GlobalMapCache { get; set; }
-    ConcurrentDictionary<int, Area> TempGlobalMapCache { get; set; }
+    Dictionary<int, Area> TempGlobalMapCache { get; set; }
     ConcurrentDictionary<string, Buff> GlobalBuffCache { get; set; }
     ConcurrentDictionary<string, Debuff> GlobalDeBuffCache { get; set; }
     ConcurrentDictionary<ushort, BoardTemplate> GlobalBoardPostCache { get; set; }
@@ -54,6 +54,7 @@ public interface IServerContext
     ConcurrentDictionary<uint, Mundane> GlobalMundaneCache { get; set; }
     ConcurrentDictionary<long, Item> GlobalGroundItemCache { get; set; }
     ConcurrentDictionary<long, Item> GlobalSqlItemCache { get; set; }
+    ConcurrentDictionary<long, Money> GlobalGroundMoneyCache { get; set; }
     ConcurrentDictionary<int, IDictionary<Type, object>> SpriteCollections { get; set; }
     ConcurrentDictionary<uint, Trap> Traps { get; set; }
     ConcurrentDictionary<long, ConcurrentDictionary<string, KillRecord>> GlobalKillRecordCache { get; set; }

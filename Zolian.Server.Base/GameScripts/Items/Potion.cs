@@ -1,5 +1,6 @@
 ﻿using Chaos.Common.Definitions;
 
+using Darkages.Common;
 using Darkages.Enums;
 using Darkages.GameScripts.Affects;
 using Darkages.ScriptingBase;
@@ -250,6 +251,8 @@ public class Potion(Item item) : ItemScript(item)
                                 hp = 50;
 
                                 client.Aisling.CurrentHp -= (int)hp;
+                                if (client.Aisling.CurrentHp <= 0)
+                                    client.Aisling.CurrentHp = 1;
                                 client.SendServerMessage(ServerMessageType.OrangeBar1, "That went down smooth. -50 hp");
                             }
                             break;
@@ -258,6 +261,8 @@ public class Potion(Item item) : ItemScript(item)
                                 hp = 150;
 
                                 client.Aisling.CurrentHp -= (int)hp;
+                                if (client.Aisling.CurrentHp <= 0)
+                                    client.Aisling.CurrentHp = 1;
                                 client.SendServerMessage(ServerMessageType.OrangeBar1, "Strong! -150 hp");
                             }
                             break;
@@ -267,7 +272,11 @@ public class Potion(Item item) : ItemScript(item)
                                 mp = 1000;
 
                                 client.Aisling.CurrentHp -= (int)hp;
+                                if (client.Aisling.CurrentHp <= 0)
+                                    client.Aisling.CurrentHp = 1;
                                 client.Aisling.CurrentMp -= (int)mp;
+                                if (client.Aisling.CurrentMp <= 0)
+                                    client.Aisling.CurrentMp = 1;
                                 client.SendServerMessage(ServerMessageType.OrangeBar1, "Too much of a good thing. -80 hp, -1000 mp");
                             }
                             break;
@@ -279,6 +288,25 @@ public class Potion(Item item) : ItemScript(item)
                                 client.Aisling.CurrentHp += (int)hp;
                                 client.Aisling.CurrentMp += (int)mp;
                                 client.SendServerMessage(ServerMessageType.OrangeBar1, "It's good for the heart after all. 80 hp, 100 mp");
+                            }
+                            break;
+                        case "Rum":
+                            {
+                                hp = 500;
+                                mp = 180;
+
+                                client.Aisling.CurrentHp += (int)hp;
+                                client.Aisling.CurrentMp -= (int)mp;
+                                if (client.Aisling.CurrentMp <= 0)
+                                    client.Aisling.CurrentMp = 1;
+                                client.SendServerMessage(ServerMessageType.OrangeBar1, "Rummmm, why.. is all the rum Gone! 500 hp, -180 mp");
+
+                                var rand = Generator.RandomNumPercentGen();
+                                if (rand >= 0.99)
+                                {
+                                    var buff = new buff_drunkenFist();
+                                    buff.OnApplied(aisling, buff);
+                                }
                             }
                             break;
 
@@ -387,7 +415,25 @@ public class Potion(Item item) : ItemScript(item)
                                 hp = client.Aisling.MaximumHp * .33;
 
                                 client.Aisling.CurrentHp -= (int)hp;
+                                if (client.Aisling.CurrentHp <= 0)
+                                    client.Aisling.CurrentHp = 1;
                                 client.SendServerMessage(ServerMessageType.OrangeBar1, "I shouldn't eat these. -33% hp");
+                            }
+                            break;
+                        case "Red Tentacle":
+                            {
+                                hp = client.Aisling.MaximumHp * .35;
+
+                                client.Aisling.CurrentHp += (int)hp;
+                                client.SendServerMessage(ServerMessageType.OrangeBar1, "Wow, that's really fresh! 35% hp");
+                            }
+                            break;
+                        case "Kraken Tentacle":
+                            {
+                                hp = client.Aisling.MaximumHp * .40;
+
+                                client.Aisling.CurrentHp += (int)hp;
+                                client.SendServerMessage(ServerMessageType.OrangeBar1, "Wow, that's really fresh! 40% hp");
                             }
                             break;
                         case "Rotten Veggies":
@@ -395,6 +441,8 @@ public class Potion(Item item) : ItemScript(item)
                                 hp = client.Aisling.MaximumHp * .05;
 
                                 client.Aisling.CurrentHp -= (int)hp;
+                                if (client.Aisling.CurrentHp <= 0)
+                                    client.Aisling.CurrentHp = 1;
                                 client.SendServerMessage(ServerMessageType.OrangeBar1, "Yea, no good. -5% hp");
                             }
                             break;
@@ -403,6 +451,8 @@ public class Potion(Item item) : ItemScript(item)
                                 mp = client.Aisling.MaximumMp * .08;
 
                                 client.Aisling.CurrentMp -= (int)mp;
+                                if (client.Aisling.CurrentMp <= 0)
+                                    client.Aisling.CurrentMp = 1;
                                 client.SendServerMessage(ServerMessageType.OrangeBar1, "I feel my power leaving me. -8% mp");
                             }
                             break;
@@ -411,6 +461,8 @@ public class Potion(Item item) : ItemScript(item)
                                 mp = client.Aisling.MaximumMp * .08;
 
                                 client.Aisling.CurrentMp -= (int)mp;
+                                if (client.Aisling.CurrentMp <= 0)
+                                    client.Aisling.CurrentMp = 1;
                                 client.SendServerMessage(ServerMessageType.OrangeBar1, "I feel my power leaving me. -8% mp");
                             }
                             break;
@@ -422,7 +474,29 @@ public class Potion(Item item) : ItemScript(item)
                                 client.SendServerMessage(ServerMessageType.OrangeBar1, "This would be great in a stew. 3% mp");
                             }
                             break;
+                        case "Fresh Cod":
+                            {
+                                hp = client.Aisling.MaximumHp * .25;
 
+                                client.Aisling.CurrentHp += (int)hp;
+                                client.SendServerMessage(ServerMessageType.OrangeBar1, "Wow, that's really fresh! 25% hp");
+                            }
+                            break;
+                        case "Fresh Blowfish":
+                            {
+                                var rand = Generator.RandomNumPercentGen();
+                                if (rand >= 0.50)
+                                {
+                                    client.Aisling.CurrentHp = client.Aisling.MaximumHp;
+                                    client.SendServerMessage(ServerMessageType.OrangeBar1, "A fish with a bite! Yum! 100% hp");
+                                    return;
+                                }
+
+                                client.SendServerMessage(ServerMessageType.ActiveMessage, "{=bA fish with a bite! Ouch!");
+                                var debuff = new DebuffReaping();
+                                client.EnqueueDebuffAppliedEvent(client.Aisling, debuff, TimeSpan.FromSeconds(30));
+                            }
+                            break;
                             #endregion
                     }
                     break;

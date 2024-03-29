@@ -19,11 +19,10 @@ public class Area : Map, IArea
     public byte[] Data;
     public ushort Hash;
     public bool Ready;
-    private readonly List<List<TileGrid>> _tiles = new();
-    private List<List<TileGrid>> _masterGrid = new();
     private readonly object _mapLoadLock = new();
 
     public int MiningNodesCount { get; set; }
+    public int WildFlowersCount { get; set; }
     public TileGrid[,] ObjectGrid { get; set; }
     public TileContent[,] TileContent { get; set; }
     public Tuple<string, AreaScript> Script { get; set; }
@@ -76,8 +75,8 @@ public class Area : Map, IArea
         }
         catch (Exception ex)
         {
-            ServerSetup.Logger(ex.Message, Microsoft.Extensions.Logging.LogLevel.Error);
-            ServerSetup.Logger(ex.StackTrace, Microsoft.Extensions.Logging.LogLevel.Error);
+            ServerSetup.EventsLogger(ex.Message, Microsoft.Extensions.Logging.LogLevel.Error);
+            ServerSetup.EventsLogger(ex.StackTrace, Microsoft.Extensions.Logging.LogLevel.Error);
             Crashes.TrackError(ex);
         }
 
@@ -111,10 +110,13 @@ public class Area : Map, IArea
         if (sprite is not Mundane)
             if (sprite is null || sprite.CurrentHp <= 0 || ((int)sprite.Pos.X == x && (int)sprite.Pos.Y == y)) return false;
         if (x < 0 || y < 0 || x >= sprite.Map.Width || y >= sprite.Map.Height) return true; // Is wall, return true
+        if (x >= sprite.Map.ObjectGrid.GetLength(0) || y >= sprite.Map.ObjectGrid.GetLength(1)) return false; // Bounds check, return false
 
-        var grid = sprite.Map.ObjectGrid;
-        if (x >= grid.GetLength(0) || y >= grid.GetLength(1)) return false; // Bounds check, return false
-        return !grid[x, y].Sprites.IsNullOrEmpty();
+        // Grab list of sprites on x & y
+        var spritesOnLocation = sprite.Map.ObjectGrid[x, y].Sprites.ToList();
+        if (spritesOnLocation.IsNullOrEmpty()) return false;
+        var first = spritesOnLocation.First();
+        return sprite.Target?.Pos != first.Pos;
     }
 
     /// <summary>
@@ -124,10 +126,8 @@ public class Area : Map, IArea
     public bool IsSpriteInLocationOnCreation(Sprite sprite, int x, int y)
     {
         if (x < 0 || y < 0 || x >= sprite.Map.Width || y >= sprite.Map.Height) return true; // Is wall, return true
-
-        var grid = sprite.Map.ObjectGrid;
-        if (x >= grid.GetLength(0) || y >= grid.GetLength(1)) return false; // Bounds check, return false
-        return !grid[x, y].Sprites.IsNullOrEmpty();
+        if (x >= sprite.Map.ObjectGrid.GetLength(0) || y >= sprite.Map.ObjectGrid.GetLength(1)) return false; // Bounds check, return false
+        return !sprite.Map.ObjectGrid[x, y].Sprites.IsNullOrEmpty();
     }
 
     public bool OnLoaded()
@@ -146,11 +146,8 @@ public class Area : Map, IArea
 
                 for (byte y = 0; y < Height; y++)
                 {
-                    _tiles.Add(new List<TileGrid>());
-
                     for (byte x = 0; x < Width; x++)
                     {
-                        _tiles[y].Add(new TileGrid(x));
                         ObjectGrid[x, y] = new TileGrid(this, x, y);
 
                         reader.BaseStream.Seek(2, SeekOrigin.Current);
@@ -176,8 +173,8 @@ public class Area : Map, IArea
             }
             catch (Exception ex)
             {
-                ServerSetup.Logger(ex.Message, Microsoft.Extensions.Logging.LogLevel.Error);
-                ServerSetup.Logger(ex.StackTrace, Microsoft.Extensions.Logging.LogLevel.Error);
+                ServerSetup.EventsLogger(ex.Message, Microsoft.Extensions.Logging.LogLevel.Error);
+                ServerSetup.EventsLogger(ex.StackTrace, Microsoft.Extensions.Logging.LogLevel.Error);
                 Crashes.TrackError(ex);
                 return false;
             }
@@ -227,7 +224,7 @@ public class Area : Map, IArea
         if (start == Vector2.Zero) return path;
         if (end == Vector2.Zero) return path;
 
-        List<TileGrid> viewable = new(), used = new();
+        List<TileGrid> viewable = [], used = [];
         await Task.Run(CheckNode(sprite));
 
         #region Try to set viewable Nodes
@@ -236,9 +233,9 @@ public class Area : Map, IArea
         {
             if (sprite.Target == null) return path;
             if (sprite.Map.ID != sprite.Target?.Map.ID) return path;
-            if (_masterGrid.Count == 0) return path;
+            if (sprite.MasterGrid.Count == 0) return path;
 
-            viewable.Add(_masterGrid[(int)start.X][(int)start.Y]);
+            viewable.Add(sprite.MasterGrid[(int)start.X][(int)start.Y]);
         }
         catch (Exception ex)
         {
@@ -256,7 +253,7 @@ public class Area : Map, IArea
 
         while (viewable.Count > 0 && !((int)viewable[0].Pos.X == (int)end.X && (int)viewable[0].Pos.Y == (int)end.Y))
         {
-            CheckDirectionOfNode(_masterGrid, viewable, used);
+            CheckDirectionOfNode(sprite.MasterGrid, viewable, used);
         }
 
         if (viewable.Count <= 0) return path;
@@ -284,13 +281,13 @@ public class Area : Map, IArea
 
             if ((int)currentNode.Parent.X != -1 && (int)currentNode.Parent.Y != -1)
             {
-                if ((int)currentNode.Pos.X == (int)_masterGrid[(int)currentNode.Parent.X][(int)currentNode.Parent.Y].Pos.X && (int)currentNode.Pos.Y == (int)_masterGrid[(int)currentNode.Parent.X][(int)currentNode.Parent.Y].Pos.Y)
+                if ((int)currentNode.Pos.X == (int)sprite.MasterGrid[(int)currentNode.Parent.X][(int)currentNode.Parent.Y].Pos.X && (int)currentNode.Pos.Y == (int)sprite.MasterGrid[(int)currentNode.Parent.X][(int)currentNode.Parent.Y].Pos.Y)
                 {
                     currentNode = viewable[currentViewableStart];
                     currentViewableStart++;
                 }
 
-                currentNode = _masterGrid[(int)currentNode.Parent.X][(int)currentNode.Parent.Y];
+                currentNode = sprite.MasterGrid[(int)currentNode.Parent.X][(int)currentNode.Parent.Y];
             }
             else
             {
@@ -310,16 +307,15 @@ public class Area : Map, IArea
 
     private Action CheckNode(Sprite sprite)
     {
-        var tempGrid = sprite.Map._tiles;
-        _masterGrid = new List<List<TileGrid>>();
+        sprite.MasterGrid = [];
 
         return delegate
         {
-            for (var x = 0; x < tempGrid.Count; x++)
+            for (var x = 0; x < sprite.Map.Height; x++)
             {
-                _masterGrid.Add(new List<TileGrid>());
+                sprite.MasterGrid.Add([]);
 
-                for (var y = 0; y < tempGrid.Count; y++)
+                for (var y = 0; y < sprite.Map.Width; y++)
                 {
                     var impassable = sprite.Map.IsAStarWall(sprite, x, y);
                     var filled = sprite.Map.IsSpriteInLocationOnWalk(sprite, x, y);
@@ -335,7 +331,7 @@ public class Area : Map, IArea
                         cost = 999;
                     }
 
-                    _masterGrid[x].Add(new TileGrid(new Vector2(x, y), cost, impassable, 99999999));
+                    sprite.MasterGrid[x].Add(new TileGrid(new Vector2(x, y), cost, impassable, sprite.Position.DistanceFrom(sprite.Target?.Position)));
                 }
             }
         };

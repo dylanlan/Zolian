@@ -397,28 +397,28 @@ public class Hiraishin(Spell spell) : SpellScript(spell)
 
         if (target.Serial == damageDealingSprite.Serial) return;
 
-        var targetPos = damageDealingSprite.GetFromAllSidesEmpty(damageDealingSprite, target);
+        var targetPos = damageDealingSprite.GetFromAllSidesEmpty(target);
         if (targetPos == null || targetPos == target.Position) return;
         _spellMethod.Step(damageDealingSprite, targetPos.X, targetPos.Y);
         damageDealingSprite.Facing(target.X, target.Y, out var direction);
         damageDealingSprite.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendAnimation(76, damageDealingSprite.Position));
         damageDealingSprite.Direction = (byte)direction;
         damageDealingSprite.Turn();
-        client.SendBodyAnimation(client.Aisling.Serial, (BodyAnimation)0x82, 20, spell.Template.Sound);
+        client.SendBodyAnimation(client.Aisling.Serial, (BodyAnimation)0x82, 20, Spell.Template.Sound);
     }
 
     public override void OnUse(Sprite sprite, Sprite target)
     {
-        if (!spell.CanUse()) return;
+        if (!Spell.CanUse()) return;
 
         if (sprite is Aisling aisling)
         {
             var client = aisling.Client;
-            _spellMethod.Train(client, spell);
+            _spellMethod.Train(client, Spell);
 
-            if (aisling.CurrentMp - spell.Template.ManaCost > 0)
+            if (aisling.CurrentMp - Spell.Template.ManaCost > 0)
             {
-                aisling.CurrentMp -= spell.Template.ManaCost;
+                aisling.CurrentMp -= Spell.Template.ManaCost;
             }
             else
             {
@@ -514,7 +514,7 @@ public class Shunshin(Spell spell) : SpellScript(spell)
 
         if (target.Serial == damageDealingSprite.Serial) return;
 
-        var targetPos = damageDealingSprite.GetFromAllSidesEmpty(damageDealingSprite, target);
+        var targetPos = damageDealingSprite.GetFromAllSidesEmpty(target);
         if (targetPos == null || targetPos == target.Position)
         {
             client.SendServerMessage(ServerMessageType.OrangeBar1, "Something got in the way.");
@@ -534,21 +534,21 @@ public class Shunshin(Spell spell) : SpellScript(spell)
 
         damageDealingSprite.Direction = (byte)direction;
         damageDealingSprite.Turn();
-        client.SendBodyAnimation(client.Aisling.Serial, (BodyAnimation)0x82, 20, spell.Template.Sound);
+        client.SendBodyAnimation(client.Aisling.Serial, (BodyAnimation)0x82, 20, Spell.Template.Sound);
     }
 
     public override void OnUse(Sprite sprite, Sprite target)
     {
-        if (!spell.CanUse()) return;
+        if (!Spell.CanUse()) return;
 
         if (sprite is Aisling aisling)
         {
             var client = aisling.Client;
-            _spellMethod.Train(client, spell);
+            _spellMethod.Train(client, Spell);
 
-            if (aisling.CurrentMp - spell.Template.ManaCost > 0)
+            if (aisling.CurrentMp - Spell.Template.ManaCost > 0)
             {
-                aisling.CurrentMp -= spell.Template.ManaCost;
+                aisling.CurrentMp -= Spell.Template.ManaCost;
             }
             else
             {

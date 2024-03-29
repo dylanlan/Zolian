@@ -31,6 +31,12 @@ public class EnemyRewards : RewardScript
         GenerateDrops(monster, player);
     }
 
+    public override void GenerateInanimateRewards(Monster monster, Aisling player)
+    {
+        GenerateGold();
+        DetermineDefinedMonsterDrop(monster, player);
+    }
+
     private void DetermineRandomSpecialDrop(Monster monster, Aisling player)
     {
         var dropList = JoinList(monster);
@@ -85,7 +91,7 @@ public class EnemyRewards : RewardScript
             item.Release(_monster, _monster.Position);
             ServerSetup.Instance.GlobalGroundItemCache.TryAdd(item.ItemId, item);
 
-            if (item.Enchantable && item.ItemQuality is Item.Quality.Epic or Item.Quality.Legendary or Item.Quality.Forsaken)
+            if (item.Enchantable && item.ItemQuality is Quality.Epic or Quality.Legendary or Quality.Forsaken)
             {
                 Task.Delay(100).ContinueWith(ct =>
                 {
@@ -93,7 +99,7 @@ public class EnemyRewards : RewardScript
                 });
             }
 
-            if (item.Enchantable && item.ItemQuality is Item.Quality.Mythic)
+            if (item.Enchantable && item.ItemQuality is Quality.Mythic)
             {
                 Task.Delay(100).ContinueWith(ct =>
                 {
@@ -137,9 +143,11 @@ public class EnemyRewards : RewardScript
                 continue;
             }
 
+            var chance2 = Generator.RandomNumPercentGen();
             var item2 = new Item();
             item2 = item2.Create(_monster, ServerSetup.Instance.GlobalItemTemplateCache[drop]);
-            items.Add(item2);
+            if (chance2 <= item2.Template.DropRate)
+                items.Add(item2);
         }
 
         // Build a list of items based on chance
@@ -152,7 +160,7 @@ public class EnemyRewards : RewardScript
             item.Release(_monster, _monster.Position);
             ServerSetup.Instance.GlobalGroundItemCache.TryAdd(item.ItemId, item);
 
-            if (item.Enchantable && item.ItemQuality is Item.Quality.Epic or Item.Quality.Legendary or Item.Quality.Forsaken)
+            if (item.Enchantable && item.ItemQuality is Quality.Epic or Quality.Legendary or Quality.Forsaken)
             {
                 Task.Delay(100).ContinueWith(ct =>
                 {
@@ -160,7 +168,7 @@ public class EnemyRewards : RewardScript
                 });
             }
 
-            if (item.Enchantable && item.ItemQuality is Item.Quality.Mythic)
+            if (item.Enchantable && item.ItemQuality is Quality.Mythic)
             {
                 Task.Delay(100).ContinueWith(ct =>
                 {
@@ -285,7 +293,7 @@ public class EnemyRewards : RewardScript
         };
 
         // Enqueue experience event
-        if (player.WithinRangeOf(_monster, 13))
+        if (player.WithinRangeOf(_monster, 16))
             player.Client.EnqueueExperienceEvent(player, exp, true, false);
 
         if (player.PartyMembers == null) return;
@@ -294,8 +302,25 @@ public class EnemyRewards : RewardScript
         foreach (var party in player.PartyMembers.Where(party => party.Serial != player.Serial))
         {
             if (party.Map != _monster.Map) continue;
-            if (party.WithinRangeOf(_monster, 13))
-                party.Client.EnqueueExperienceEvent(party, exp, true, false);
+            if (!party.WithinRangeOf(_monster, 16)) continue;
+
+            var partyExp = exp;
+            var partyDiff = party.ExpLevel - _monster.Template.Level;
+            partyExp = partyDiff switch
+            {
+                // Monster is higher level than player
+                <= -50 => (int)(partyExp * 0.25),
+                <= -30 => (int)(partyExp * 0.5),
+                <= -15 => (int)(partyExp * 0.75),
+                // Monster is lower level than player
+                >= 80 => 1,
+                >= 50 => (int)(partyExp * 0.15),
+                >= 30 => (int)(partyExp * 0.33),
+                >= 15 => (int)(partyExp * 0.66),
+                _ => partyExp
+            };
+
+            party.Client.EnqueueExperienceEvent(party, partyExp, true, false);
         }
     }
 

@@ -21,6 +21,8 @@ public interface IAisling : ISprite
     DialogSequence ActiveSequence { get; set; }
     ExchangeSession Exchange { get; set; }
     NameDisplayStyle NameStyle { get; set; }
+    ElementManager.Element TempOffensiveHold { get; set; }
+    ElementManager.Element TempDefensiveHold { get; set; }
     bool IsCastingSpell { get; set; }
     bool ProfileOpen { get; set; }
     Summon SummonObjects { get; set; }
@@ -28,7 +30,6 @@ public interface IAisling : ISprite
     int LastMapId { get; set; }
     WorldServerTimer AttackDmgTrack { get; }
     WorldServerTimer ThreatTimer { get; }
-    ChantTimer ChantTimer { get; }
     UserOptions GameSettings { get; init; }
     Mail MailFlags { get; set; }
     SkillBook SkillBook { get; set; }
@@ -64,8 +65,9 @@ public interface IAisling : ISprite
     void FinishExchange();
     IEnumerable<Skill> GetAssails();
     Skill GetSkill(string s);
+    Spell GetSpell(string s);
     bool GiveGold(uint offer, bool sendClientUpdate = true);
-    Aisling GiveHealth(Sprite target, int value);
+    Aisling GiveHealth(Sprite target, long value);
     void GoHome();
     bool HasInInventory(string item, int count);
     bool HasItem(string item);
@@ -85,4 +87,5 @@ public interface IAisling : ISprite
     void UpdateStats();
     void WarpToHell();
     void AutoRoutine();
+    void AutoCastRoutine();
 }

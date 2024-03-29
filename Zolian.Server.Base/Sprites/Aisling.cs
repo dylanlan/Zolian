@@ -17,6 +17,7 @@ using Microsoft.AppCenter.Crashes;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Numerics;
+using ServiceStack;
 
 namespace Darkages.Sprites;
 
@@ -35,10 +36,11 @@ public record IgnoredRecord
 public sealed class Aisling : Player, IAisling
 {
     public WorldClient Client { get; set; }
+    public readonly ConcurrentDictionary<uint, Sprite> SpritesInView = [];
+    public bool GameMasterChaosCancel { get; set; }
     public int EquipmentDamageTaken = 0;
-    public readonly ConcurrentDictionary<uint, Sprite> View = new();
-    public ConcurrentDictionary<string, KillRecord> MonsterKillCounters = new();
-    public readonly ConcurrentDictionary<short, PostTemplate> PersonalLetters = new();
+    public ConcurrentDictionary<string, KillRecord> MonsterKillCounters = [];
+    public readonly ConcurrentDictionary<short, PostTemplate> PersonalLetters = [];
     public AislingTrackers AislingTrackers { get; }
     public Stopwatch LawsOfAosda { get; set; } = new();
     public bool BlessedShield;
@@ -54,6 +56,9 @@ public sealed class Aisling : Player, IAisling
     public bool Skulled => HasDebuff("Skulled");
     public Party GroupParty => ServerSetup.Instance.GlobalGroupCache.GetValueOrDefault(GroupId);
     public List<Aisling> PartyMembers => GroupParty?.PartyMembers;
+    public string SpellTrainOne;
+    public string SpellTrainTwo;
+    public string SpellTrainThree;
     public int AreaId => CurrentMapId;
 
     public Aisling()
@@ -71,12 +76,11 @@ public sealed class Aisling : Player, IAisling
         Remains = new Death();
         Hacked = false;
         PasswordAttempts = 0;
-        DiscoveredMaps = new List<int>();
-        IgnoredList = new List<string>();
+        DiscoveredMaps = [];
+        IgnoredList = [];
         GroupId = 0;
         AttackDmgTrack = new WorldServerTimer(TimeSpan.FromSeconds(1));
         ThreatTimer = new WorldServerTimer(TimeSpan.FromSeconds(60));
-        ChantTimer = new ChantTimer(1500);
         TileType = TileContent.Aisling;
         AislingTrackers = new AislingTrackers(TimeSpan.FromSeconds(1));
     }
@@ -87,6 +91,8 @@ public sealed class Aisling : Player, IAisling
     public DialogSequence ActiveSequence { get; set; }
     public ExchangeSession Exchange { get; set; }
     public NameDisplayStyle NameStyle { get; set; }
+    public ElementManager.Element TempOffensiveHold { get; set; }
+    public ElementManager.Element TempDefensiveHold { get; set; }
     public bool IsCastingSpell { get; set; }
     public bool ProfileOpen { get; set; }
     public Summon SummonObjects { get; set; }
@@ -94,7 +100,6 @@ public sealed class Aisling : Player, IAisling
     public int LastMapId { get; set; }
     public WorldServerTimer AttackDmgTrack { get; }
     public WorldServerTimer ThreatTimer { get; set; }
-    public ChantTimer ChantTimer { get; }
     public UserOptions GameSettings { get; init; } = new();
     public Mail MailFlags { get; set; }
     public SkillBook SkillBook { get; set; }
@@ -144,18 +149,18 @@ public sealed class Aisling : Player, IAisling
     public bool CantReact => CantAttack || CantCast || CantMove;
     public bool Camouflage => SkillBook.HasSkill("Camouflage");
     public bool PainBane => SkillBook.HasSkill("Pain Bane");
-    public bool Lycanisim => Afflictions.AfflictionFlagIsSet(Enums.Afflictions.Lycanisim);
-    public bool Vampirisim => Afflictions.AfflictionFlagIsSet(Enums.Afflictions.Vampirisim);
-    public bool Plagued => Afflictions.AfflictionFlagIsSet(Enums.Afflictions.Plagued);
-    public bool TheShakes => Afflictions.AfflictionFlagIsSet(Enums.Afflictions.TheShakes);
-    public bool Stricken => Afflictions.AfflictionFlagIsSet(Enums.Afflictions.Stricken);
-    public bool Rabies => Afflictions.AfflictionFlagIsSet(Enums.Afflictions.Rabies);
+    public bool Lycanisim => Afflictions.AfflictionFlagIsSet(Afflictions.Lycanisim);
+    public bool Vampirisim => Afflictions.AfflictionFlagIsSet(Afflictions.Vampirisim);
+    public bool Plagued => Afflictions.AfflictionFlagIsSet(Afflictions.Plagued);
+    public bool TheShakes => Afflictions.AfflictionFlagIsSet(Afflictions.TheShakes);
+    public bool Stricken => Afflictions.AfflictionFlagIsSet(Afflictions.Stricken);
+    public bool Rabies => Afflictions.AfflictionFlagIsSet(Afflictions.Rabies);
     public int RabiesCountDown { get; set; }
-    public bool LockJoint => Afflictions.AfflictionFlagIsSet(Enums.Afflictions.LockJoint);
-    public bool NumbFall => Afflictions.AfflictionFlagIsSet(Enums.Afflictions.NumbFall);
-    public bool Diseased => Afflictions.AfflictionFlagIsSet(Enums.Afflictions.Plagued) && Afflictions.AfflictionFlagIsSet(Enums.Afflictions.TheShakes);
-    public bool Hallowed => Afflictions.AfflictionFlagIsSet(Enums.Afflictions.Plagued) && Afflictions.AfflictionFlagIsSet(Enums.Afflictions.Stricken);
-    public bool Petrified => Afflictions.AfflictionFlagIsSet(Enums.Afflictions.LockJoint) && Afflictions.AfflictionFlagIsSet(Enums.Afflictions.NumbFall);
+    public bool LockJoint => Afflictions.AfflictionFlagIsSet(Afflictions.LockJoint);
+    public bool NumbFall => Afflictions.AfflictionFlagIsSet(Afflictions.NumbFall);
+    public bool Diseased => Afflictions.AfflictionFlagIsSet(Afflictions.Plagued) && Afflictions.AfflictionFlagIsSet(Afflictions.TheShakes);
+    public bool Hallowed => Afflictions.AfflictionFlagIsSet(Afflictions.Plagued) && Afflictions.AfflictionFlagIsSet(Afflictions.Stricken);
+    public bool Petrified => Afflictions.AfflictionFlagIsSet(Afflictions.LockJoint) && Afflictions.AfflictionFlagIsSet(Afflictions.NumbFall);
 
     public bool Poisoned
     {
@@ -439,9 +444,9 @@ public sealed class Aisling : Player, IAisling
         catch (Exception e)
         {
             if (info == null)
-                ServerSetup.Logger($"{Username} tried to cast {spell.Name} and info was null");
+                ServerSetup.EventsLogger($"{Username} tried to cast {spell.Name} and info was null");
             if (info?.Target == 0)
-                ServerSetup.Logger($"{Username} tried to cast {spell.Name} and target was 0");
+                ServerSetup.EventsLogger($"{Username} tried to cast {spell.Name} and target was 0");
             Crashes.TrackError(e);
         }
 
@@ -513,6 +518,11 @@ public sealed class Aisling : Player, IAisling
         return SkillBook.GetSkills(i => i?.Template.Name == s).First();
     }
 
+    public Spell GetSpell(string s)
+    {
+        return SpellBook.TryGetSpells(i => i?.Template.Name == s).First();
+    }
+
     public bool GiveGold(uint offer, bool sendClientUpdate = true)
     {
         if (GoldPoints + offer < ServerSetup.Instance.Config.MaxCarryGold)
@@ -526,7 +536,7 @@ public sealed class Aisling : Player, IAisling
         return false;
     }
 
-    public Aisling GiveHealth(Sprite target, int value)
+    public Aisling GiveHealth(Sprite target, long value)
     {
         target.CurrentHp += value;
 
@@ -692,7 +702,7 @@ public sealed class Aisling : Player, IAisling
         if (!ServerSetup.Instance.GlobalMapCache.ContainsKey(ServerSetup.Instance.Config.DeathMap)) return;
         if (CurrentMapId == ServerSetup.Instance.Config.DeathMap) return;
 
-        Remains.Reap(this);
+        Death.Reap(this);
         RemoveBuffsAndDebuffs();
         WarpToHell();
     }
@@ -829,5 +839,73 @@ public sealed class Aisling : Player, IAisling
         }
 
         stopWatch.Stop();
+    }
+
+    public async void AutoCastRoutine()
+    {
+        var stopWatch = new Stopwatch();
+        stopWatch.Start();
+        var pos = Pos;
+        var spells = SetSpellsToCast();
+
+        while (pos == Pos && Client.Connected)
+        {
+            if (!(stopWatch.Elapsed.TotalMilliseconds > 1000)) continue;
+            stopWatch.Restart();
+
+            var monster = MonstersNearby().RandomIEnum();
+            if (monster == null) return;
+            Target = monster;
+
+            foreach (var spell in spells)
+            {
+                if (spell is null) continue;
+                if (!spell.CanUse()) continue;
+                if (spell.Scripts is null || spell.Scripts.IsEmpty) continue;
+
+                spell.InUse = true;
+                var script = spell.Scripts.Values.First();
+                script?.OnUse(this, spell.Template.TargetType == SpellTemplate.SpellUseType.NoTarget ? this : Target);
+                spell.CurrentCooldown = spell.Template.Cooldown;
+                Client.SendCooldown(false, spell.Slot, spell.CurrentCooldown);
+                spell.LastUsedSpell = DateTime.UtcNow;
+                spell.InUse = false;
+                await Task.Delay(spell.Lines * 1000);
+            }
+        }
+
+        stopWatch.Stop();
+    }
+
+    private List<Spell> SetSpellsToCast()
+    {
+        var spells = new List<Spell>();
+
+        if (!SpellTrainOne.IsEmpty())
+        {
+            if (SpellBook.HasSpell(SpellTrainOne))
+            {
+                var spell = GetSpell(SpellTrainOne);
+                spells.Add(spell);
+            }
+        }
+
+        if (!SpellTrainTwo.IsEmpty())
+        {
+            if (SpellBook.HasSpell(SpellTrainTwo))
+            {
+                var spell = GetSpell(SpellTrainTwo);
+                spells.Add(spell);
+            }
+        }
+
+        if (SpellTrainThree.IsEmpty()) return spells;
+        {
+            if (!SpellBook.HasSpell(SpellTrainThree)) return spells;
+            var spell = GetSpell(SpellTrainThree);
+            spells.Add(spell);
+        }
+
+        return spells;
     }
 }

@@ -17,7 +17,7 @@ public static class NpcShopExtensions
 
     /// <summary>
     /// Takes the default list of strings containing item names. It compares that list against the Global Item Cache for matches
-    /// Looks to see if items specify an Npc, if they do and they match the current Npc. It then adds them to the default list
+    /// Looks to see if items specify a Npc, if they do, and they match the current Npc. It then adds them to the default list
     /// </summary>
     /// <returns>List of ItemTemplates</returns>
     public static IEnumerable<ItemTemplate> BuyFromStoreInventory(Mundane mundane)
@@ -25,7 +25,7 @@ public static class NpcShopExtensions
         var defaultBag = mundane.Template.DefaultMerchantStock.Select(i =>
             ServerSetup.Instance.GlobalItemTemplateCache.GetValueOrDefault(i));
 
-        // NpcKey is generally blank in the database, it gives another way to declare an Npc can carry an item
+        // NpcKey is generally blank in the database, it gives another way to declare a Npc can carry an item
         return ServerSetup.Instance.GlobalItemTemplateCache.Values.Where(i => i.NpcKey == mundane.Template.Name)
             .ToList().Concat(defaultBag.Where(n => n != null));
     }
@@ -448,7 +448,7 @@ public static class NpcShopExtensions
 
     #endregion
 
-    #region Blacksmithing
+    #region Blacksmithing & Armorsmithing
 
     // Increase weapons to +1
     public static List<byte> GetCharacterNoviceWeaponImprove(WorldClient client)
@@ -519,6 +519,77 @@ public static class NpcShopExtensions
         };
     }
 
+    // Increase armor None -> Iron
+    public static List<byte> GetCharacterNoviceArmorImprove(WorldClient client)
+    {
+        var inventory = new List<Item>(client.Aisling.Inventory.Items.Values.Where(i => i != null && i.Template.EquipmentSlot == 2));
+        return inventory.Where(w => w.ItemMaterial is Item.ItemMaterials.None or Item.ItemMaterials.Copper).Select(i => i.InventorySlot).ToList();
+    }
+
+    // Increase armor Steel -> Elven
+    public static List<byte> GetCharacterApprenticeArmorImprove(WorldClient client)
+    {
+        var inventory = new List<Item>(client.Aisling.Inventory.Items.Values.Where(i => i != null && i.Template.EquipmentSlot == 2));
+        return inventory.Where(w => w.ItemMaterial is Item.ItemMaterials.None or Item.ItemMaterials.Copper or Item.ItemMaterials.Iron
+            or Item.ItemMaterials.Steel or Item.ItemMaterials.Forged).Select(i => i.InventorySlot).ToList();
+    }
+
+    // Increase armor Dwarven -> Hybrasyl
+    public static List<byte> GetCharacterJourneymanArmorImprove(WorldClient client)
+    {
+        var inventory = new List<Item>(client.Aisling.Inventory.Items.Values.Where(i => i != null && i.Template.EquipmentSlot == 2));
+        return inventory.Where(w => w.ItemMaterial is Item.ItemMaterials.None or Item.ItemMaterials.Copper or Item.ItemMaterials.Iron
+            or Item.ItemMaterials.Steel or Item.ItemMaterials.Forged or Item.ItemMaterials.Elven
+            or Item.ItemMaterials.Dwarven or Item.ItemMaterials.Mythril).Select(i => i.InventorySlot).ToList();
+    }
+
+    // Increase armor MoonStone -> Runic
+    public static List<byte> GetCharacterExpertArmorImprove(WorldClient client)
+    {
+        var inventory = new List<Item>(client.Aisling.Inventory.Items.Values.Where(i => i != null && i.Template.EquipmentSlot == 2));
+        return inventory.Where(w => w.ItemMaterial is Item.ItemMaterials.None or Item.ItemMaterials.Copper or Item.ItemMaterials.Iron
+            or Item.ItemMaterials.Steel or Item.ItemMaterials.Forged or Item.ItemMaterials.Elven
+            or Item.ItemMaterials.Dwarven or Item.ItemMaterials.Mythril or Item.ItemMaterials.Hybrasyl
+            or Item.ItemMaterials.MoonStone or Item.ItemMaterials.SunStone or Item.ItemMaterials.Ebony).Select(i => i.InventorySlot).ToList();
+    }
+
+    // Increase armor Chaos
+    public static List<byte> GetCharacterArtisanalArmorImprove(WorldClient client)
+    {
+        var inventory = new List<Item>(client.Aisling.Inventory.Items.Values.Where(i => i != null && i.Template.EquipmentSlot == 2));
+        return inventory.Where(w => w.ItemMaterial is Item.ItemMaterials.None or Item.ItemMaterials.Copper or Item.ItemMaterials.Iron
+            or Item.ItemMaterials.Steel or Item.ItemMaterials.Forged or Item.ItemMaterials.Elven
+            or Item.ItemMaterials.Dwarven or Item.ItemMaterials.Mythril or Item.ItemMaterials.Hybrasyl
+            or Item.ItemMaterials.MoonStone or Item.ItemMaterials.SunStone or Item.ItemMaterials.Ebony
+            or Item.ItemMaterials.Runic).Select(i => i.InventorySlot).ToList();
+    }
+
+    public static uint GetArmorSmithingCosts(WorldClient client, string args)
+    {
+        ItemDetail = client.Aisling.Inventory.Get(i => i != null && i.InventorySlot == Convert.ToInt32(args)).FirstOrDefault();
+
+        if (ItemDetail == null) return 0;
+
+        return ItemDetail.ItemMaterial switch
+        {
+            Item.ItemMaterials.None => 1000,
+            Item.ItemMaterials.Copper => 5000,
+            Item.ItemMaterials.Iron => 15000,
+            Item.ItemMaterials.Steel => 59000,
+            Item.ItemMaterials.Forged => 210000,
+            Item.ItemMaterials.Elven => 300000,
+            Item.ItemMaterials.Dwarven => 570000,
+            Item.ItemMaterials.Mythril => 900000,
+            Item.ItemMaterials.Hybrasyl => 1800000,
+            Item.ItemMaterials.MoonStone => 12000000,
+            Item.ItemMaterials.SunStone => 20000000,
+            Item.ItemMaterials.Ebony => 43000000,
+            Item.ItemMaterials.Runic => 200000000,
+            Item.ItemMaterials.Chaos => 500000000,
+            _ => 0
+        };
+    }
+
     #endregion
 
     #region Repair
@@ -536,7 +607,7 @@ public static class NpcShopExtensions
         var inventory = new List<Item>(client.Aisling.Inventory.Items.Values.Where(i =>
             i != null && i.Template.CanStack == false && i.Template.Enchantable));
 
-        return inventory.Where(i => i.ItemQuality is Item.Quality.Damaged or Item.Quality.Common or Item.Quality.Uncommon or Item.Quality.Rare).Select(i => i.InventorySlot).ToList();
+        return inventory.Where(i => i.ItemQuality is Item.Quality.Damaged or Item.Quality.Common or Item.Quality.Uncommon).Select(i => i.InventorySlot).ToList();
     }
 
     public static List<byte> GetCharacterDetailingByteListForHighGradePolish(WorldClient client)

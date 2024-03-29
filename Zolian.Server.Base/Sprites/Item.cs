@@ -17,6 +17,7 @@ using Microsoft.Extensions.Logging;
 
 using System.Collections.Concurrent;
 using System.Numerics;
+using Darkages.GameScripts.Formulas;
 
 namespace Darkages.Sprites;
 
@@ -71,6 +72,7 @@ public sealed class Item : Sprite, IItem
         Aegis,
         Reaping,
         Vampirism,
+        Ghosting,
         Haste,
         Gust,
         Quake,
@@ -82,9 +84,6 @@ public sealed class Item : Sprite, IItem
 
     /// <summary>
     /// Each tier is 5% boost to min/max dmg
-    /// Tier 3 gives +2 all stats 1k hp/mp
-    /// Tier 5 gives +3 all stats 2k hp/mp
-    /// Tier 6 gives +4 all stats 3k hp/mp
     /// </summary>
     public enum GearEnhancements
     {
@@ -94,36 +93,31 @@ public sealed class Item : Sprite, IItem
         Three,
         Four,
         Five,
-        Six
+        Six,
+        Seven,
+        Eight,
+        Nine
     }
 
     /// <summary>
-    /// Each tier is +1 AC, 5 MR, 5 HIT
-    /// Tier 3 (Steel) +1 all stats 500 hp/mp
-    /// Tier 5 (Elven) +2 all stats 750 hp/mp
-    /// Tier 7 (Mythril) +2 all stats 2500 hp/mp
-    /// Tier 9 (MoonStone) +3 all stats 3000 hp/mp
-    /// Tier 10 (SunStone) +3 all stats 5000 hp/mp
-    /// Tier 11 (Ebony) +4 all stats 6000 hp/mp
-    /// Tier 12 (Runic) +5 all stats 10000 hp/mp
-    /// Tier 13 (Chaos) +5 all stats 20000 hp/mp
+    /// Each tier is +1 AC, 5 DMG
     /// </summary>
     public enum ItemMaterials
     {
-        None,
-        Copper,
-        Iron,
-        Steel,
-        Forged,
-        Elven,
-        Dwarven,
-        Mythril,
-        Hybrasyl,
-        MoonStone,
-        SunStone,
-        Ebony,
-        Runic,
-        Chaos
+        None, // N
+        Copper, // N
+        Iron, // N
+        Steel, // A
+        Forged, // A
+        Elven, // A
+        Dwarven, // J
+        Mythril, // J
+        Hybrasyl, // J
+        MoonStone, // E
+        SunStone, // E
+        Ebony, // E
+        Runic, // E
+        Chaos // A
     }
 
     public long ItemId { get; set; }
@@ -184,8 +178,30 @@ public sealed class Item : Sprite, IItem
             _ => ""
         };
 
+        var itemMaterial = ItemMaterial switch
+        {
+            ItemMaterials.None => "",
+            ItemMaterials.Copper => "Copper ",
+            ItemMaterials.Iron => "Iron ",
+            ItemMaterials.Steel => "Steel ",
+            ItemMaterials.Forged => "Forged Steel ",
+            ItemMaterials.Elven => "Elven ",
+            ItemMaterials.Dwarven => "Dwarven ",
+            ItemMaterials.Mythril => "Mythril ",
+            ItemMaterials.Hybrasyl => "Hybrasyl ",
+            ItemMaterials.MoonStone => "MoonStone ",
+            ItemMaterials.SunStone => "SunStone ",
+            ItemMaterials.Ebony => "Ebony ",
+            ItemMaterials.Runic => "Runic ",
+            ItemMaterials.Chaos => "Chaos ",
+            _ => ""
+        };
+
         if (Tarnished)
             colorCode = "{=jTarnished ";
+
+        if (Template.EquipmentSlot == 2)
+            return itemMaterial + Template.Name;
 
         if (!Enchantable) return Template.Name;
         if (ItemVariance != Variance.None && ItemQuality != Quality.Common)
@@ -257,8 +273,30 @@ public sealed class Item : Sprite, IItem
             _ => ""
         };
 
+        var itemMaterial = ItemMaterial switch
+        {
+            ItemMaterials.None => "",
+            ItemMaterials.Copper => "Copper ",
+            ItemMaterials.Iron => "Iron ",
+            ItemMaterials.Steel => "Steel ",
+            ItemMaterials.Forged => "Forged Steel ",
+            ItemMaterials.Elven => "Elven ",
+            ItemMaterials.Dwarven => "Dwarven ",
+            ItemMaterials.Mythril => "Mythril ",
+            ItemMaterials.Hybrasyl => "Hybrasyl ",
+            ItemMaterials.MoonStone => "MoonStone ",
+            ItemMaterials.SunStone => "SunStone ",
+            ItemMaterials.Ebony => "Ebony ",
+            ItemMaterials.Runic => "Runic ",
+            ItemMaterials.Chaos => "Chaos ",
+            _ => ""
+        };
+
         if (Tarnished)
             colorCode = "Tarnished ";
+
+        if (Template.EquipmentSlot == 2)
+            return itemMaterial + Template.Name;
 
         if (!Enchantable) return Template.Name;
         if (ItemVariance != Variance.None && ItemQuality != Quality.Common)
@@ -357,17 +395,14 @@ public sealed class Item : Sprite, IItem
         {
             if (obj.Template.MaxDurability == uint.MinValue)
             {
-                obj.Template.MaxDurability = ServerSetup.Instance.Config.DefaultItemDurability;
+                obj.MaxDurability = ServerSetup.Instance.Config.DefaultItemDurability;
                 obj.Durability = ServerSetup.Instance.Config.DefaultItemDurability;
             }
-
-            if (obj.Template.Value == uint.MinValue)
-                obj.Template.Value = ServerSetup.Instance.Config.DefaultItemValue;
         }
 
         if (obj.Template.Flags.FlagIsSet(ItemFlags.QuestRelated))
         {
-            obj.Template.MaxDurability = 0;
+            obj.MaxDurability = 0;
             obj.Durability = 0;
         }
 
@@ -403,6 +438,7 @@ public sealed class Item : Sprite, IItem
 
             obj.ItemQuality = checkedQuality;
             obj.OriginalQuality = checkedQuality;
+            ItemQualityVariance.ItemDurability(obj, obj.OriginalQuality);
         }
         else
         {
@@ -413,7 +449,7 @@ public sealed class Item : Sprite, IItem
         }
 
         obj.Serial = EphemeralRandomIdGenerator<uint>.Shared.NextId;
-        obj.ItemId = EphemeralRandomIdGenerator<uint>.Shared.NextId;
+        obj.ItemId = EphemeralRandomIdGenerator<long>.Shared.NextId;
         obj.ItemId = CheckAndAmendItemIdIfItExists(obj);
 
         obj.Scripts = ScriptManager.Load<ItemScript>(template.ScriptName, obj);
@@ -465,22 +501,19 @@ public sealed class Item : Sprite, IItem
         {
             if (obj.Template.MaxDurability == uint.MinValue)
             {
-                obj.Template.MaxDurability = ServerSetup.Instance.Config.DefaultItemDurability;
+                obj.MaxDurability = ServerSetup.Instance.Config.DefaultItemDurability;
                 obj.Durability = ServerSetup.Instance.Config.DefaultItemDurability;
             }
-
-            if (obj.Template.Value == uint.MinValue)
-                obj.Template.Value = ServerSetup.Instance.Config.DefaultItemValue;
         }
 
         if (obj.Template.Flags.FlagIsSet(ItemFlags.QuestRelated))
         {
-            obj.Template.MaxDurability = 0;
+            obj.MaxDurability = 0;
             obj.Durability = 0;
         }
 
         obj.Serial = EphemeralRandomIdGenerator<uint>.Shared.NextId;
-        obj.ItemId = EphemeralRandomIdGenerator<uint>.Shared.NextId;
+        obj.ItemId = EphemeralRandomIdGenerator<long>.Shared.NextId;
         obj.ItemId = CheckAndAmendItemIdIfItExists(obj);
 
         obj.Scripts = ScriptManager.Load<ItemScript>(template.ScriptName, obj);
@@ -526,12 +559,12 @@ public sealed class Item : Sprite, IItem
 
         if (obj.Template.Flags.FlagIsSet(ItemFlags.QuestRelated))
         {
-            obj.Template.MaxDurability = 0;
+            obj.MaxDurability = 0;
             obj.Durability = 0;
         }
 
         obj.Serial = EphemeralRandomIdGenerator<uint>.Shared.NextId;
-        obj.ItemId = EphemeralRandomIdGenerator<uint>.Shared.NextId;
+        obj.ItemId = EphemeralRandomIdGenerator<long>.Shared.NextId;
         obj.ItemId = CheckAndAmendItemIdIfItExists(obj);
 
         obj.Scripts = ScriptManager.Load<ItemScript>(template.ScriptName, obj);
@@ -594,7 +627,7 @@ public sealed class Item : Sprite, IItem
             GearEnhancement = GearEnhancements.None,
             ItemMaterial = ItemMaterials.None,
             Serial = owner.Serial,
-            ItemId = EphemeralRandomIdGenerator<uint>.Shared.NextId
+            ItemId = EphemeralRandomIdGenerator<long>.Shared.NextId
         };
 
         obj.ItemId = CheckAndAmendItemIdIfItExists(obj);
@@ -723,8 +756,8 @@ public sealed class Item : Sprite, IItem
         }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
         finally
@@ -757,7 +790,7 @@ public sealed class Item : Sprite, IItem
 
                     // Reapplies Stat modifiers
                     StatModifiersCalc(client, equipment.Value.Item);
-
+                    if (equipment.Value.Item.Template.EquipmentSlot == 2) ArmorSmithingQualities(client, equipment.Value.Item);
                     if (!equipment.Value.Item.Template.Enchantable) continue;
 
                     ItemVarianceCalc(client, equipment.Value.Item);
@@ -770,8 +803,8 @@ public sealed class Item : Sprite, IItem
             }
             catch (Exception e)
             {
-                ServerSetup.Logger(e.Message, LogLevel.Error);
-                ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+                ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+                ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
                 Crashes.TrackError(e);
             }
         }
@@ -807,6 +840,7 @@ public sealed class Item : Sprite, IItem
         client.Aisling.Aegis = 0;
         client.Aisling.Reaping = 0;
         client.Aisling.Vampirism = 0;
+        client.Aisling.Ghosting = 0;
         client.Aisling.Haste = 0;
         client.Aisling.Gust = 0;
         client.Aisling.Quake = 0;
@@ -890,6 +924,31 @@ public sealed class Item : Sprite, IItem
         }
     }
 
+    public void ArmorSmithingQualities(WorldClient client, Item equipment)
+    {
+        Dictionary<ItemMaterials, Action<WorldClient>> materialActions = new()
+        {
+            {ItemMaterials.Copper, c => { c.Aisling.BonusAc += 1; c.Aisling.BonusDmg += 5; }},
+            {ItemMaterials.Iron, c => { c.Aisling.BonusAc += 2; c.Aisling.BonusDmg += 10; c.Aisling.BonusHp += 2500; c.Aisling.BonusMp += 2500; }},
+            {ItemMaterials.Steel, c => { c.Aisling.BonusAc += 3; c.Aisling.BonusDmg += 15; c.Aisling.BonusHp += 5000; c.Aisling.BonusMp += 2500; }},
+            {ItemMaterials.Forged, c => { c.Aisling.BonusAc += 4; c.Aisling.BonusDmg += 20; c.Aisling.BonusHp += 7000; c.Aisling.BonusMp += 2500; }},
+            {ItemMaterials.Elven, c => { c.Aisling.BonusAc += 5; c.Aisling.BonusDmg += 25; c.Aisling.BonusHp += 4000; c.Aisling.BonusMp += 7000; }},
+            {ItemMaterials.Dwarven, c => { c.Aisling.BonusAc += 6; c.Aisling.BonusDmg += 30; c.Aisling.BonusHp += 6000; c.Aisling.BonusMp += 6000; }},
+            {ItemMaterials.Mythril, c => { c.Aisling.BonusAc += 7; c.Aisling.BonusDmg += 35; c.Aisling.BonusHp += 6500; c.Aisling.BonusMp += 8000; }},
+            {ItemMaterials.Hybrasyl, c => { c.Aisling.BonusAc += 8; c.Aisling.BonusDmg += 40; c.Aisling.BonusHp += 8000; c.Aisling.BonusMp += 8000; }},
+            {ItemMaterials.MoonStone, c => { c.Aisling.BonusAc += 9; c.Aisling.BonusDmg += 45; c.Aisling.BonusHp += 12500; c.Aisling.BonusMp += 15000; }},
+            {ItemMaterials.SunStone, c => { c.Aisling.BonusAc += 10; c.Aisling.BonusDmg += 50; c.Aisling.BonusHp += 17000; c.Aisling.BonusMp += 15000; }},
+            {ItemMaterials.Ebony, c => { c.Aisling.BonusAc += 11; c.Aisling.BonusDmg += 55; c.Aisling.BonusHp += 25000; c.Aisling.BonusMp += 25000; }},
+            {ItemMaterials.Runic, c => { c.Aisling.BonusAc += 12; c.Aisling.BonusDmg += 60; c.Aisling.BonusHp += 35000; c.Aisling.BonusMp += 35000; }},
+            {ItemMaterials.Chaos, c => { c.Aisling.BonusAc += 13; c.Aisling.BonusDmg += 65; c.Aisling.BonusHp += 50000; c.Aisling.BonusMp += 50000; }}
+        };
+
+        if (materialActions.TryGetValue(equipment.ItemMaterial, out var action))
+        {
+            action(client);
+        }
+    }
+
     public void ItemVarianceCalc(WorldClient client, Item equipment)
     {
         Dictionary<Variance, Action<WorldClient>> varianceActions = new()
@@ -924,6 +983,7 @@ public sealed class Item : Sprite, IItem
             {WeaponVariance.Aegis, c => c.Aisling.Aegis += 1},
             {WeaponVariance.Reaping, c => c.Aisling.Reaping += 1},
             {WeaponVariance.Vampirism, c => c.Aisling.Vampirism += 1},
+            {WeaponVariance.Ghosting, c => c.Aisling.Ghosting += 1},
             {WeaponVariance.Haste, c => c.Aisling.Haste += 1},
             {WeaponVariance.Gust, c => c.Aisling.Gust += 1},
             {WeaponVariance.Quake, c => c.Aisling.Quake += 1},

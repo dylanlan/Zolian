@@ -23,6 +23,7 @@ public class Debuff : IDebuff
     public virtual byte Icon { get; set; }
     public virtual int Length { get; set; }
     public virtual string Name { get; set; }
+    public virtual bool Affliction { get; set; }
     public int TimeLeft { get; set; }
     public Debuff DebuffSpell { get; set; }
 
@@ -72,8 +73,6 @@ public class Debuff : IDebuff
             "Decay" => new DebuffDecay(),
             "Dark Chain" => new DebuffDarkChain(),
             "Silence" => new DebuffSilence(),
-            "Lycanisim" => new Lycanisim(),
-            "Vampirisim" => new Vampirisim(),
             "Plagued" => new Plagued(),
             "The Shakes" => new TheShakes(),
             "Stricken" => new Stricken(),
@@ -134,14 +133,14 @@ public class Debuff : IDebuff
                 return;
             }
 
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
     }
@@ -162,14 +161,14 @@ public class Debuff : IDebuff
         }
         catch (SqlException e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
     }
@@ -203,14 +202,14 @@ public class Debuff : IDebuff
         }
         catch (SqlException e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
 

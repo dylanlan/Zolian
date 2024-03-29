@@ -37,6 +37,10 @@ public static class Commander
             .SetAction(Chaos));
 
         ServerSetup.Instance.Parser.AddCommand(Command
+            .Create("Cancel Chaos", "cc", "- Halt shutdown:")
+            .SetAction(CancelChaos));
+
+        ServerSetup.Instance.Parser.AddCommand(Command
             .Create("Reload Maps", "rm", "- Reload all maps:")
             .SetAction(OnMapReload));
 
@@ -117,27 +121,74 @@ public static class Commander
             client.SendServerMessage(ServerMessageType.ActiveMessage, "{=bRestricted GM Command - Shuts down server");
             return;
         }
+
         var players = ServerSetup.Instance.Game.Aislings;
         var playersList = players.ToList();
-        ServerSetup.Logger("--------------------------------------------", LogLevel.Warning);
-        ServerSetup.Logger("", LogLevel.Warning);
-        ServerSetup.Logger("--------------- Server Chaos ---------------", LogLevel.Warning);
-
-        _ = StorageManager.AislingBucket.ServerSave(playersList);
+        ServerSetup.EventsLogger("--------------------------------------------", LogLevel.Warning);
+        ServerSetup.EventsLogger("", LogLevel.Warning);
+        ServerSetup.EventsLogger("--------------- Server Chaos ---------------", LogLevel.Warning);
 
         foreach (var connected in playersList)
         {
-            _ = StorageManager.AislingBucket.AuxiliarySave(connected);
-            connected.Client.SendServerMessage(ServerMessageType.GroupChat, "{=qDeath{=g: {=bInvokes Chaos to rise{=g. -Server Shutdown-");
-            connected.Client.SendServerMessage(ServerMessageType.ScrollWindow, "{=bChaos has risen.\n\n {=a During chaos, various updates will be performed. This can last anywhere between 1 to 5 minutes depending on the complexity of the update.");
-            Task.Delay(500).ContinueWith(ct =>
+            connected.Client.SendServerMessage(ServerMessageType.GroupChat, "{=qDeath{=g: {=bServer maintenance in 1 minute.");
+
+            Task.Delay(15000).ContinueWith(ct =>
             {
-                connected.Client.Disconnect();
+                connected.Client.SendServerMessage(ServerMessageType.GroupChat, "{=qDeath{=g: {=bServer maintenance in 45 seconds.");
+            });
+            Task.Delay(30000).ContinueWith(ct =>
+            {
+                connected.Client.SendServerMessage(ServerMessageType.GroupChat, "{=qDeath{=g: {=bServer maintenance in 30 seconds.");
+            });
+
+            Task.Delay(45000).ContinueWith(ct =>
+            {
+                connected.Client.SendServerMessage(ServerMessageType.GroupChat, "{=qDeath{=g: {=bServer maintenance in 15 seconds.");
+            });
+
+            Task.Delay(55000).ContinueWith(ct =>
+            {
+                connected.Client.SendServerMessage(ServerMessageType.GroupChat, "{=qDeath{=g: {=bServer maintenance in 5 seconds.");
+            });
+
+            Task.Delay(58000).ContinueWith(ct =>
+            {
+                if (client.Aisling.GameMasterChaosCancel) return;
+                connected.Client.SendServerMessage(ServerMessageType.GroupChat, "{=qDeath{=g: {=bInvokes Chaos to rise{=g. -Server Shutdown-");
+                connected.Client.SendServerMessage(ServerMessageType.ScrollWindow, "{=bChaos has risen.\n\n {=a During chaos, various updates will be performed. This can last anywhere between 1 to 5 minutes depending on the complexity of the update.");
+            });
+
+            Task.Delay(60000).ContinueWith(ct =>
+            {
+                if (!client.Aisling.GameMasterChaosCancel)
+                    connected.Client.Disconnect();
+
+                connected.Client.SendServerMessage(ServerMessageType.GroupChat, "{=qDeath{=g: {=bChaos has been cancelled.");
             });
         }
 
-        ServerSetup.Instance.Running = false;
+        if (!client.Aisling.GameMasterChaosCancel)
+            ServerSetup.Instance.Running = false;
     }
+
+    /// <summary>
+    /// Cancels chaos before it completes
+    /// </summary>
+    private static void CancelChaos(Argument[] args, object arg)
+    {
+        var client = (WorldClient)arg;
+        if (client == null) return;
+        var death = client.Aisling.Username.Equals("death", StringComparison.InvariantCultureIgnoreCase);
+        if (!death)
+        {
+            client.SendServerMessage(ServerMessageType.ActiveMessage, "{=bRestricted GM Command - Cancel Chaos");
+            return;
+        }
+
+        ServerSetup.EventsLogger("Chaos Cancelled", LogLevel.Warning);
+        client.Aisling.GameMasterChaosCancel = !client.Aisling.GameMasterChaosCancel;
+    }
+
 
     /// <summary>
     /// Restarts server by forcing an Exit Program command
@@ -145,9 +196,9 @@ public static class Commander
     public static void Restart(Argument[] args, object arg)
     {
         var players = ServerSetup.Instance.Game.Aislings.ToList();
-        ServerSetup.Logger("---------------------------------------------", LogLevel.Warning);
-        ServerSetup.Logger("", LogLevel.Warning);
-        ServerSetup.Logger("------------- Server Restart Initiated -------------", LogLevel.Warning);
+        ServerSetup.EventsLogger("---------------------------------------------", LogLevel.Warning);
+        ServerSetup.EventsLogger("", LogLevel.Warning);
+        ServerSetup.EventsLogger("------------- Server Restart Initiated -------------", LogLevel.Warning);
 
         // Announce to all players
         foreach (var connected in players)
@@ -337,11 +388,11 @@ public static class Commander
         if (client == null) return;
         Analytics.TrackEvent($"{client.RemoteIp} used GM Command -Reload Maps- on character: {client.Aisling.Username}");
         var players = ServerSetup.Instance.Game.Aislings;
-        ServerSetup.Logger("---------------------------------------------", LogLevel.Warning);
-        ServerSetup.Logger("------------- Maps Reloaded -------------", LogLevel.Warning);
+        ServerSetup.EventsLogger("---------------------------------------------", LogLevel.Warning);
+        ServerSetup.EventsLogger("------------- Maps Reloaded -------------", LogLevel.Warning);
 
         // Wipe
-        ServerSetup.Instance.TempGlobalMapCache = new ConcurrentDictionary<int, Area>();
+        ServerSetup.Instance.TempGlobalMapCache = new Dictionary<int, Area>();
         ServerSetup.Instance.TempGlobalWarpTemplateCache = new();
 
         foreach (var mon in ServerSetup.Instance.GlobalMonsterCache.Values)
@@ -362,7 +413,7 @@ public static class Commander
 
         foreach (var connected in players)
         {
-            connected.Client.SendServerMessage(ServerMessageType.ActiveMessage, "{=qDeath Invokes Reload Maps");
+            connected.Client.SendServerMessage(ServerMessageType.ActiveMessage, $"{{=q{client.Aisling.Username} Invokes Reload Maps");
             connected.Client.ClientRefreshed();
         }
     }
@@ -392,7 +443,6 @@ public static class Commander
                 var item = new Item();
                 item = item.Create(client.Aisling, template);
                 item.Stacks = template.MaxStack;
-                if (!item.CanCarry(client.Aisling)) continue;
                 item.GiveTo(client.Aisling);
             }
 
@@ -406,72 +456,39 @@ public static class Commander
                 }
                 item = item.Create(client.Aisling, template);
                 item.Stacks = (ushort)remaining;
-                if (!item.CanCarry(client.Aisling)) return;
                 item.GiveTo(client.Aisling);
             }
         }
         else
         {
+            var item = new Item();
+            var quality = Item.Quality.Common;
+            var variance = Item.Variance.None;
+            var wVariance = Item.WeaponVariance.None;
+            
             for (var i = 0; i < quantity; i++)
             {
-                var quality = ItemQualityVariance.DetermineHighQuality();
-                var variance = ItemQualityVariance.DetermineVariance();
-                var wVariance = ItemQualityVariance.DetermineWeaponVariance();
-                var item = new Item();
                 if (client.Aisling.Inventory.IsFull)
                 {
                     client.SendServerMessage(ServerMessageType.ActiveMessage, $"{{=cYour inventory is full");
                     return;
                 }
+
+                if (template.Enchantable)
+                {
+                    quality = ItemQualityVariance.DetermineHighQuality();
+                    variance = ItemQualityVariance.DetermineVariance();
+                    wVariance = ItemQualityVariance.DetermineWeaponVariance();
+                }
+
                 item = item.Create(client.Aisling, template, quality, variance, wVariance);
-                ItemDura(item, quality);
-                if (!item.CanCarry(client.Aisling)) continue;
+                ItemQualityVariance.ItemDurability(item, quality);
                 item.GiveTo(client.Aisling);
             }
         }
     }
-
-    private static void ItemDura(Item item, Item.Quality quality)
-    {
-        var temp = item.Template.MaxDurability;
-        switch (quality)
-        {
-            case Item.Quality.Damaged:
-                item.MaxDurability = (uint)(temp / 1.4);
-                item.Durability = item.MaxDurability;
-                break;
-            case Item.Quality.Common:
-                item.MaxDurability = temp / 1;
-                item.Durability = item.MaxDurability;
-                break;
-            case Item.Quality.Uncommon:
-                item.MaxDurability = (uint)(temp / 0.9);
-                item.Durability = item.MaxDurability;
-                break;
-            case Item.Quality.Rare:
-                item.MaxDurability = (uint)(temp / 0.8);
-                item.Durability = item.MaxDurability;
-                break;
-            case Item.Quality.Epic:
-                item.MaxDurability = (uint)(temp / 0.7);
-                item.Durability = item.MaxDurability;
-                break;
-            case Item.Quality.Legendary:
-                item.MaxDurability = (uint)(temp / 0.6);
-                item.Durability = item.MaxDurability;
-                break;
-            case Item.Quality.Forsaken:
-                item.MaxDurability = (uint)(temp / 0.5);
-                item.Durability = item.MaxDurability;
-                break;
-            case Item.Quality.Mythic:
-                item.MaxDurability = (uint)(temp / 0.3);
-                item.Durability = item.MaxDurability;
-                break;
-        }
-    }
-
+    
     public static void ParseChatMessage(WorldClient client, string message) => ServerSetup.Instance.Parser?.Parse(message, client);
 
-    private static void OnParseError(object obj, string command) => ServerSetup.Logger($"[Chat Parser] Error: {command}");
+    private static void OnParseError(object obj, string command) => ServerSetup.EventsLogger($"[Chat Parser] Error: {command}");
 }

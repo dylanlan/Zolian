@@ -8,7 +8,6 @@ using Darkages.Sprites;
 using Darkages.Templates;
 using Darkages.Types;
 
-using Microsoft.AppCenter.Crashes;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -26,7 +25,7 @@ namespace Darkages;
 public class ServerSetup : IServerContext
 {
     public static ServerSetup Instance { get; private set; }
-    private static ILogger<ServerSetup> _log;
+    private static ILogger<ServerSetup> _eventsLogger;
     public static IOptions<ServerOptions> ServerOptions;
     public readonly RestClient RestClient;
     public readonly RestClient RestReport;
@@ -45,50 +44,50 @@ public class ServerSetup : IServerContext
     public string KeyCode { get; set; }
     public string Unlock { get; set; }
     public IPAddress IpAddress { get; set; }
-    public string GmA { get; set; }
-    public string GmB { get; set; }
+    public string[] GameMastersIPs { get; set; }
     public string InternalAddress { get; set; }
 
     // Templates
     public FrozenDictionary<int, WorldMapTemplate> GlobalWorldMapTemplateCache { get; set; }
-    public Dictionary<int, WorldMapTemplate> TempGlobalWorldMapTemplateCache { get; set; } = new();
+    public Dictionary<int, WorldMapTemplate> TempGlobalWorldMapTemplateCache { get; set; } = [];
     public FrozenDictionary<int, WarpTemplate> GlobalWarpTemplateCache { get; set; }
-    public Dictionary<int, WarpTemplate> TempGlobalWarpTemplateCache { get; set; } = new();
+    public Dictionary<int, WarpTemplate> TempGlobalWarpTemplateCache { get; set; } = [];
     public FrozenDictionary<string, SkillTemplate> GlobalSkillTemplateCache { get; set; }
-    public Dictionary<string, SkillTemplate> TempGlobalSkillTemplateCache { get; set; } = new();
+    public Dictionary<string, SkillTemplate> TempGlobalSkillTemplateCache { get; set; } = [];
     public FrozenDictionary<string, SpellTemplate> GlobalSpellTemplateCache { get; set; }
-    public Dictionary<string, SpellTemplate> TempGlobalSpellTemplateCache { get; set; } = new();
+    public Dictionary<string, SpellTemplate> TempGlobalSpellTemplateCache { get; set; } = [];
     public FrozenDictionary<string, ItemTemplate> GlobalItemTemplateCache { get; set; }
-    public Dictionary<string, ItemTemplate> TempGlobalItemTemplateCache { get; set; } = new();
+    public Dictionary<string, ItemTemplate> TempGlobalItemTemplateCache { get; set; } = [];
     public FrozenDictionary<string, NationTemplate> GlobalNationTemplateCache { get; set; }
-    public Dictionary<string, NationTemplate> TempGlobalNationTemplateCache { get; set; } = new();
+    public Dictionary<string, NationTemplate> TempGlobalNationTemplateCache { get; set; } = [];
     public FrozenDictionary<string, MonsterTemplate> GlobalMonsterTemplateCache { get; set; }
-    public Dictionary<string, MonsterTemplate> TempGlobalMonsterTemplateCache { get; set; } = new();
+    public Dictionary<string, MonsterTemplate> TempGlobalMonsterTemplateCache { get; set; } = [];
     public FrozenDictionary<string, MundaneTemplate> GlobalMundaneTemplateCache { get; set; }
-    public Dictionary<string, MundaneTemplate> TempGlobalMundaneTemplateCache { get; set; } = new();
+    public Dictionary<string, MundaneTemplate> TempGlobalMundaneTemplateCache { get; set; } = [];
     public FrozenDictionary<uint, string> GlobalKnownGoodActorsCache { get; set; }
-    public Dictionary<uint, string> TempGlobalKnownGoodActorsCache { get; set; } = new();
+    public Dictionary<uint, string> TempGlobalKnownGoodActorsCache { get; set; } = [];
 
     // Frozen Live
     public FrozenDictionary<int, Area> GlobalMapCache { get; set; }
-    public ConcurrentDictionary<int, Area> TempGlobalMapCache { get; set; } = new();
+    public Dictionary<int, Area> TempGlobalMapCache { get; set; } = [];
 
     // Live
-    public ConcurrentDictionary<string, Buff> GlobalBuffCache { get; set; } = new();
-    public ConcurrentDictionary<string, Debuff> GlobalDeBuffCache { get; set; } = new();
-    public ConcurrentDictionary<ushort, BoardTemplate> GlobalBoardPostCache { get; set; } = new();
-    public ConcurrentDictionary<int, Party> GlobalGroupCache { get; set; } = new();
-    public ConcurrentDictionary<uint, Monster> GlobalMonsterCache { get; set; } = new();
-    public ConcurrentDictionary<uint, Mundane> GlobalMundaneCache { get; set; } = new();
-    public ConcurrentDictionary<long, Item> GlobalGroundItemCache { get; set; } = new();
-    public ConcurrentDictionary<long, Item> GlobalSqlItemCache { get; set; } = new();
-    public ConcurrentDictionary<int, IDictionary<Type, object>> SpriteCollections { get; set; } = new();
-    public ConcurrentDictionary<uint, Trap> Traps { get; set; } = new();
-    public ConcurrentDictionary<long, ConcurrentDictionary<string, KillRecord>> GlobalKillRecordCache { get; set; } = new();
-    public ConcurrentDictionary<IPAddress, IPAddress> GlobalLobbyConnection { get; set; } = new();
-    public ConcurrentDictionary<IPAddress, IPAddress> GlobalLoginConnection { get; set; } = new();
-    public ConcurrentDictionary<IPAddress, IPAddress> GlobalWorldConnection { get; set; } = new();
-    public ConcurrentDictionary<IPAddress, byte> GlobalCreationCount { get; set; } = new();
+    public ConcurrentDictionary<string, Buff> GlobalBuffCache { get; set; } = [];
+    public ConcurrentDictionary<string, Debuff> GlobalDeBuffCache { get; set; } = [];
+    public ConcurrentDictionary<ushort, BoardTemplate> GlobalBoardPostCache { get; set; } = [];
+    public ConcurrentDictionary<int, Party> GlobalGroupCache { get; set; } = [];
+    public ConcurrentDictionary<uint, Monster> GlobalMonsterCache { get; set; } = [];
+    public ConcurrentDictionary<uint, Mundane> GlobalMundaneCache { get; set; } = [];
+    public ConcurrentDictionary<long, Item> GlobalGroundItemCache { get; set; } = [];
+    public ConcurrentDictionary<long, Item> GlobalSqlItemCache { get; set; } = [];
+    public ConcurrentDictionary<long, Money> GlobalGroundMoneyCache { get; set; } = [];
+    public ConcurrentDictionary<int, IDictionary<Type, object>> SpriteCollections { get; set; } = [];
+    public ConcurrentDictionary<uint, Trap> Traps { get; set; } = [];
+    public ConcurrentDictionary<long, ConcurrentDictionary<string, KillRecord>> GlobalKillRecordCache { get; set; } = [];
+    public ConcurrentDictionary<IPAddress, IPAddress> GlobalLobbyConnection { get; set; } = [];
+    public ConcurrentDictionary<IPAddress, IPAddress> GlobalLoginConnection { get; set; } = [];
+    public ConcurrentDictionary<IPAddress, IPAddress> GlobalWorldConnection { get; set; } = [];
+    public ConcurrentDictionary<IPAddress, byte> GlobalCreationCount { get; set; } = [];
 
     public ServerSetup(IOptions<ServerOptions> options)
     {
@@ -98,18 +97,27 @@ public class ServerSetup : IServerContext
         KeyCode = ServerOptions.Value.KeyCode;
         Unlock = ServerOptions.Value.Unlock;
         InternalAddress = ServerOptions.Value.InternalIp;
-        GmA = ServerOptions.Value.GmA;
-        GmB = ServerOptions.Value.GmB;
+        GameMastersIPs = ServerOptions.Value.GameMastersIPs;
         var restSettings = SetupRestClients();
         RestClient = new RestClient(restSettings.Item1);
         RestReport = new RestClient(restSettings.Item2);
     }
 
-    public static void Logger(string logMessage, LogLevel logLevel = LogLevel.Information)
+    public static void ConnectionLogger(string logMessage, LogLevel logLevel = LogLevel.Information)
     {
-        _log?.Log(logLevel, "{logMessage}", logMessage);
+        _eventsLogger?.Log(logLevel, "{logMessage}", logMessage);
     }
 
+    public static void PacketLogger(string logMessage, LogLevel logLevel = LogLevel.Information)
+    {
+        _eventsLogger?.Log(logLevel, "{logMessage}", logMessage);
+    }
+
+    public static void EventsLogger(string logMessage, LogLevel logLevel = LogLevel.Information)
+    { 
+        _eventsLogger?.Log(logLevel, "{logMessage}", logMessage);
+    }
+    
     private static (RestClientOptions, RestClientOptions) SetupRestClients()
     {
         var optionsCheck = new RestClientOptions("https://api.abuseipdb.com/api/v2/check")
@@ -138,7 +146,7 @@ public class ServerSetup : IServerContext
     public void Start(IServerConstants config, ILogger<ServerSetup> logger)
     {
         Config = config;
-        _log = logger;
+        _eventsLogger = logger;
         Commander.CompileCommands();
         Startup();
         CommandHandler();
@@ -153,9 +161,8 @@ public class ServerSetup : IServerContext
         }
         catch (Exception ex)
         {
-            Logger(ex.Message, LogLevel.Error);
-            Logger(ex.StackTrace, LogLevel.Error);
-            Crashes.TrackError(ex);
+            EventsLogger(ex.Message);
+            EventsLogger(ex.StackTrace);
         }
     }
 
@@ -189,9 +196,9 @@ public class ServerSetup : IServerContext
     public void LoadExtensions()
     {
         CacheBuffs();
-        Logger($"Buff Cache: {GlobalBuffCache.Count}");
+        EventsLogger($"Buff Cache: {GlobalBuffCache.Count}");
         CacheDebuffs();
-        Logger($"Debuff Cache: {GlobalDeBuffCache.Count}");
+        EventsLogger($"Debuff Cache: {GlobalDeBuffCache.Count}");
     }
 
     public void CacheBuffs()

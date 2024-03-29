@@ -45,8 +45,8 @@ public record AislingStorage : Sql, IAislingStorage
         }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
         finally
@@ -80,8 +80,8 @@ public record AislingStorage : Sql, IAislingStorage
         }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
         finally
@@ -108,8 +108,8 @@ public record AislingStorage : Sql, IAislingStorage
         }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
         finally
@@ -145,38 +145,39 @@ public record AislingStorage : Sql, IAislingStorage
             var spellList = obj.SpellBook.Spells.Values.Where(i => i is { SpellName: not null }).ToList();
 
             dt.Rows.Add(obj.Serial, obj.Created, obj.Username, obj.LoggedIn, obj.LastLogged, obj.X, obj.Y, obj.CurrentMapId,
-                obj.OffenseElement.ToString(), obj.DefenseElement.ToString(), obj.SecondaryOffensiveElement.ToString(),
-                obj.SecondaryDefensiveElement.ToString(), obj.Direction, obj.CurrentHp, obj.BaseHp, obj.CurrentMp, obj.BaseMp, obj._ac,
+                obj.Direction, obj.CurrentHp, obj.BaseHp, obj.CurrentMp, obj.BaseMp, obj._ac,
                 obj._Regen, obj._Dmg, obj._Hit, obj._Mr, obj._Str, obj._Int, obj._Wis, obj._Con, obj._Dex, obj._Luck, obj.AbpLevel,
                 obj.AbpNext, obj.AbpTotal, obj.ExpLevel, obj.ExpNext, obj.ExpTotal, obj.Stage.ToString(), obj.JobClass.ToString(),
                 obj.Path.ToString(), obj.PastClass.ToString(), obj.Race.ToString(), obj.Afflictions.ToString(), obj.Gender.ToString(),
                 obj.HairColor, obj.HairStyle, obj.NameColor, obj.ProfileMessage, obj.Nation, obj.Clan, obj.ClanRank, obj.ClanTitle,
-                obj.AnimalForm.ToString(), obj.MonsterForm, obj.ActiveStatus.ToString(), obj.Flags.ToString(), obj.CurrentWeight, obj.World,
+                obj.MonsterForm, obj.ActiveStatus.ToString(), obj.Flags.ToString(), obj.CurrentWeight, obj.World,
                 obj.Lantern, obj.IsInvisible, obj.Resting.ToString(), obj.FireImmunity, obj.WaterImmunity, obj.WindImmunity, obj.EarthImmunity,
                 obj.LightImmunity, obj.DarkImmunity, obj.PoisonImmunity, obj.EnticeImmunity, obj.PartyStatus.ToString(), obj.RaceSkill,
-                obj.RaceSpell, obj.GameMaster, obj.ArenaHost, obj.Developer, obj.Ranger, obj.Knight, obj.GoldPoints, obj.StatPoints, obj.GamePoints,
+                obj.RaceSpell, obj.GameMaster, obj.ArenaHost, obj.Knight, obj.GoldPoints, obj.StatPoints, obj.GamePoints,
                 obj.BankedGold, obj.ArmorImg, obj.HelmetImg, obj.ShieldImg, obj.WeaponImg, obj.BootsImg, obj.HeadAccessoryImg, obj.Accessory1Img,
                 obj.Accessory2Img, obj.Accessory3Img, obj.Accessory1Color, obj.Accessory2Color, obj.Accessory3Color, obj.BodyColor, obj.BodySprite,
-                obj.FaceSprite, obj.OverCoatImg, obj.BootColor, obj.OverCoatColor, obj.Pants, obj.Aegis, obj.Bleeding, obj.Spikes, obj.Rending,
-                obj.Reaping, obj.Vampirism, obj.Haste, obj.Gust, obj.Quake, obj.Rain, obj.Flame, obj.Dusk, obj.Dawn);
+                obj.FaceSprite, obj.OverCoatImg, obj.BootColor, obj.OverCoatColor, obj.Pants);
 
             if (obj.QuestManager == null) return false;
             qDt.Rows.Add(obj.Serial, obj.QuestManager.MailBoxNumber, obj.QuestManager.TutorialCompleted, obj.QuestManager.BetaReset, obj.QuestManager.ArtursGift, obj.QuestManager.CamilleGreetingComplete,
-                obj.QuestManager.ConnPotions, obj.QuestManager.CryptTerror, obj.QuestManager.CryptTerrorSlayed, obj.QuestManager.Dar, obj.QuestManager.DarItem,
-                obj.QuestManager.DrunkenHabit, obj.QuestManager.EternalLove, obj.QuestManager.FionaDance, obj.QuestManager.Keela, obj.QuestManager.KeelaCount,
-                obj.QuestManager.KeelaKill, obj.QuestManager.KeelaQuesting, obj.QuestManager.KillerBee, obj.QuestManager.Neal, obj.QuestManager.NealCount,
-                obj.QuestManager.NealKill, obj.QuestManager.AbelShopAccess, obj.QuestManager.PeteKill, obj.QuestManager.PeteComplete, obj.QuestManager.SwampAccess,
-                obj.QuestManager.SwampCount, obj.QuestManager.TagorDungeonAccess, obj.QuestManager.Lau, obj.QuestManager.BeltDegree, obj.QuestManager.MilethReputation,
-                obj.QuestManager.AbelReputation, obj.QuestManager.RucesionReputation, obj.QuestManager.SuomiReputation, obj.QuestManager.RionnagReputation, obj.QuestManager.OrenReputation,
-                obj.QuestManager.PietReputation, obj.QuestManager.LouresReputation, obj.QuestManager.UndineReputation, obj.QuestManager.TagorReputation, obj.QuestManager.BlackSmithing,
-                obj.QuestManager.BlackSmithingTier, obj.QuestManager.ArmorSmithing, obj.QuestManager.ArmorSmithingTier, obj.QuestManager.JewelCrafting, obj.QuestManager.JewelCraftingTier,
-                obj.QuestManager.StoneSmithing, obj.QuestManager.StoneSmithingTier, obj.QuestManager.ThievesGuildReputation, obj.QuestManager.AssassinsGuildReputation,
-                obj.QuestManager.AdventuresGuildReputation, obj.QuestManager.BeltQuest, obj.QuestManager.SavedChristmas, obj.QuestManager.RescuedReindeer, obj.QuestManager.YetiKilled);
+            obj.QuestManager.ConnPotions, obj.QuestManager.CryptTerror, obj.QuestManager.CryptTerrorSlayed, obj.QuestManager.CryptTerrorContinued, obj.QuestManager.CryptTerrorContSlayed,
+            obj.QuestManager.NightTerror, obj.QuestManager.NightTerrorSlayed, obj.QuestManager.DreamWalking, obj.QuestManager.DreamWalkingSlayed, obj.QuestManager.Dar, obj.QuestManager.DarItem, obj.QuestManager.ReleasedTodesbaum,
+            obj.QuestManager.DrunkenHabit, obj.QuestManager.FionaDance, obj.QuestManager.Keela, obj.QuestManager.KeelaCount, obj.QuestManager.KeelaKill, obj.QuestManager.KeelaQuesting,
+            obj.QuestManager.KillerBee, obj.QuestManager.Neal, obj.QuestManager.NealCount, obj.QuestManager.NealKill, obj.QuestManager.AbelShopAccess, obj.QuestManager.PeteKill, obj.QuestManager.PeteComplete,
+            obj.QuestManager.SwampAccess, obj.QuestManager.SwampCount, obj.QuestManager.TagorDungeonAccess, obj.QuestManager.Lau, obj.QuestManager.BeltDegree, obj.QuestManager.MilethReputation,
+            obj.QuestManager.AbelReputation, obj.QuestManager.RucesionReputation, obj.QuestManager.SuomiReputation, obj.QuestManager.RionnagReputation, obj.QuestManager.OrenReputation,
+            obj.QuestManager.PietReputation, obj.QuestManager.LouresReputation, obj.QuestManager.UndineReputation, obj.QuestManager.TagorReputation, obj.QuestManager.BlackSmithing,
+            obj.QuestManager.BlackSmithingTier, obj.QuestManager.ArmorSmithing, obj.QuestManager.ArmorSmithingTier, obj.QuestManager.JewelCrafting, obj.QuestManager.JewelCraftingTier,
+            obj.QuestManager.StoneSmithing, obj.QuestManager.StoneSmithingTier, obj.QuestManager.ThievesGuildReputation, obj.QuestManager.AssassinsGuildReputation,
+            obj.QuestManager.AdventuresGuildReputation, obj.QuestManager.BeltQuest, obj.QuestManager.SavedChristmas, obj.QuestManager.RescuedReindeer, obj.QuestManager.YetiKilled, obj.QuestManager.UnknownStart, obj.QuestManager.PirateShipAccess,
+            obj.QuestManager.ScubaSchematics, obj.QuestManager.ScubaMaterialsQuest, obj.QuestManager.ScubaGearCrafted, obj.QuestManager.EternalLove, obj.QuestManager.EternalLoveStarted, obj.QuestManager.UnhappyEnding,
+            obj.QuestManager.HonoringTheFallen, obj.QuestManager.ReadTheFallenNotes, obj.QuestManager.GivenTarnishedBreastplate, obj.QuestManager.EternalBond, obj.QuestManager.ArmorCraftingCodex,
+            obj.QuestManager.ArmorApothecaryAccepted, obj.QuestManager.ArmorCodexDeciphered, obj.QuestManager.ArmorCraftingCodexLearned, obj.QuestManager.ArmorCraftingAdvancedCodexLearned);
 
             if (obj.ComboManager == null) return false;
             cDt.Rows.Add(obj.Serial, obj.ComboManager.Combo1, obj.ComboManager.Combo2, obj.ComboManager.Combo3, obj.ComboManager.Combo4, obj.ComboManager.Combo5,
-                obj.ComboManager.Combo6, obj.ComboManager.Combo7, obj.ComboManager.Combo8, obj.ComboManager.Combo9, obj.ComboManager.Combo10, obj.ComboManager.Combo11,
-                obj.ComboManager.Combo12, obj.ComboManager.Combo13, obj.ComboManager.Combo14, obj.ComboManager.Combo15);
+            obj.ComboManager.Combo6, obj.ComboManager.Combo7, obj.ComboManager.Combo8, obj.ComboManager.Combo9, obj.ComboManager.Combo10, obj.ComboManager.Combo11,
+            obj.ComboManager.Combo12, obj.ComboManager.Combo13, obj.ComboManager.Combo14, obj.ComboManager.Combo15);
 
             foreach (var item in itemList)
             {
@@ -321,8 +322,8 @@ public record AislingStorage : Sql, IAislingStorage
         }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
         finally
@@ -364,32 +365,33 @@ public record AislingStorage : Sql, IAislingStorage
                 var spellList = player.SpellBook.Spells.Values.Where(i => i is { SpellName: not null }).ToList();
 
                 dt.Rows.Add(player.Serial, player.Created, player.Username, player.LoggedIn, player.LastLogged, player.X, player.Y, player.CurrentMapId,
-                    player.OffenseElement.ToString(), player.DefenseElement.ToString(), player.SecondaryOffensiveElement.ToString(),
-                    player.SecondaryDefensiveElement.ToString(), player.Direction, player.CurrentHp, player.BaseHp, player.CurrentMp, player.BaseMp, player._ac,
+                    player.Direction, player.CurrentHp, player.BaseHp, player.CurrentMp, player.BaseMp, player._ac,
                     player._Regen, player._Dmg, player._Hit, player._Mr, player._Str, player._Int, player._Wis, player._Con, player._Dex, player._Luck, player.AbpLevel,
                     player.AbpNext, player.AbpTotal, player.ExpLevel, player.ExpNext, player.ExpTotal, player.Stage.ToString(), player.JobClass.ToString(),
                     player.Path.ToString(), player.PastClass.ToString(), player.Race.ToString(), player.Afflictions.ToString(), player.Gender.ToString(),
                     player.HairColor, player.HairStyle, player.NameColor, player.ProfileMessage, player.Nation, player.Clan, player.ClanRank, player.ClanTitle,
-                    player.AnimalForm.ToString(), player.MonsterForm, player.ActiveStatus.ToString(), player.Flags.ToString(), player.CurrentWeight, player.World,
+                    player.MonsterForm, player.ActiveStatus.ToString(), player.Flags.ToString(), player.CurrentWeight, player.World,
                     player.Lantern, player.IsInvisible, player.Resting.ToString(), player.FireImmunity, player.WaterImmunity, player.WindImmunity, player.EarthImmunity,
                     player.LightImmunity, player.DarkImmunity, player.PoisonImmunity, player.EnticeImmunity, player.PartyStatus.ToString(), player.RaceSkill,
-                    player.RaceSpell, player.GameMaster, player.ArenaHost, player.Developer, player.Ranger, player.Knight, player.GoldPoints, player.StatPoints, player.GamePoints,
+                    player.RaceSpell, player.GameMaster, player.ArenaHost, player.Knight, player.GoldPoints, player.StatPoints, player.GamePoints,
                     player.BankedGold, player.ArmorImg, player.HelmetImg, player.ShieldImg, player.WeaponImg, player.BootsImg, player.HeadAccessoryImg, player.Accessory1Img,
                     player.Accessory2Img, player.Accessory3Img, player.Accessory1Color, player.Accessory2Color, player.Accessory3Color, player.BodyColor, player.BodySprite,
-                    player.FaceSprite, player.OverCoatImg, player.BootColor, player.OverCoatColor, player.Pants, player.Aegis, player.Bleeding, player.Spikes, player.Rending,
-                    player.Reaping, player.Vampirism, player.Haste, player.Gust, player.Quake, player.Rain, player.Flame, player.Dusk, player.Dawn);
+                    player.FaceSprite, player.OverCoatImg, player.BootColor, player.OverCoatColor, player.Pants);
 
                 qDt.Rows.Add(player.Serial, player.QuestManager.MailBoxNumber, player.QuestManager.TutorialCompleted, player.QuestManager.BetaReset, player.QuestManager.ArtursGift, player.QuestManager.CamilleGreetingComplete,
-                    player.QuestManager.ConnPotions, player.QuestManager.CryptTerror, player.QuestManager.CryptTerrorSlayed, player.QuestManager.Dar, player.QuestManager.DarItem,
-                    player.QuestManager.DrunkenHabit, player.QuestManager.EternalLove, player.QuestManager.FionaDance, player.QuestManager.Keela, player.QuestManager.KeelaCount,
-                    player.QuestManager.KeelaKill, player.QuestManager.KeelaQuesting, player.QuestManager.KillerBee, player.QuestManager.Neal, player.QuestManager.NealCount,
-                    player.QuestManager.NealKill, player.QuestManager.AbelShopAccess, player.QuestManager.PeteKill, player.QuestManager.PeteComplete, player.QuestManager.SwampAccess,
-                    player.QuestManager.SwampCount, player.QuestManager.TagorDungeonAccess, player.QuestManager.Lau, player.QuestManager.BeltDegree, player.QuestManager.MilethReputation,
+                    player.QuestManager.ConnPotions, player.QuestManager.CryptTerror, player.QuestManager.CryptTerrorSlayed, player.QuestManager.CryptTerrorContinued, player.QuestManager.CryptTerrorContSlayed,
+                    player.QuestManager.NightTerror, player.QuestManager.NightTerrorSlayed, player.QuestManager.DreamWalking, player.QuestManager.DreamWalkingSlayed, player.QuestManager.Dar, player.QuestManager.DarItem, player.QuestManager.ReleasedTodesbaum,
+                    player.QuestManager.DrunkenHabit, player.QuestManager.FionaDance, player.QuestManager.Keela, player.QuestManager.KeelaCount, player.QuestManager.KeelaKill, player.QuestManager.KeelaQuesting,
+                    player.QuestManager.KillerBee, player.QuestManager.Neal, player.QuestManager.NealCount, player.QuestManager.NealKill, player.QuestManager.AbelShopAccess, player.QuestManager.PeteKill, player.QuestManager.PeteComplete,
+                    player.QuestManager.SwampAccess, player.QuestManager.SwampCount, player.QuestManager.TagorDungeonAccess, player.QuestManager.Lau, player.QuestManager.BeltDegree, player.QuestManager.MilethReputation,
                     player.QuestManager.AbelReputation, player.QuestManager.RucesionReputation, player.QuestManager.SuomiReputation, player.QuestManager.RionnagReputation, player.QuestManager.OrenReputation,
                     player.QuestManager.PietReputation, player.QuestManager.LouresReputation, player.QuestManager.UndineReputation, player.QuestManager.TagorReputation, player.QuestManager.BlackSmithing,
                     player.QuestManager.BlackSmithingTier, player.QuestManager.ArmorSmithing, player.QuestManager.ArmorSmithingTier, player.QuestManager.JewelCrafting, player.QuestManager.JewelCraftingTier,
                     player.QuestManager.StoneSmithing, player.QuestManager.StoneSmithingTier, player.QuestManager.ThievesGuildReputation, player.QuestManager.AssassinsGuildReputation,
-                    player.QuestManager.AdventuresGuildReputation, player.QuestManager.BeltQuest, player.QuestManager.SavedChristmas, player.QuestManager.RescuedReindeer, player.QuestManager.YetiKilled);
+                    player.QuestManager.AdventuresGuildReputation, player.QuestManager.BeltQuest, player.QuestManager.SavedChristmas, player.QuestManager.RescuedReindeer, player.QuestManager.YetiKilled, player.QuestManager.UnknownStart, player.QuestManager.PirateShipAccess,
+                    player.QuestManager.ScubaSchematics, player.QuestManager.ScubaMaterialsQuest, player.QuestManager.ScubaGearCrafted, player.QuestManager.EternalLove, player.QuestManager.EternalLoveStarted, player.QuestManager.UnhappyEnding,
+                    player.QuestManager.HonoringTheFallen, player.QuestManager.ReadTheFallenNotes, player.QuestManager.GivenTarnishedBreastplate, player.QuestManager.EternalBond, player.QuestManager.ArmorCraftingCodex,
+                    player.QuestManager.ArmorApothecaryAccepted, player.QuestManager.ArmorCodexDeciphered, player.QuestManager.ArmorCraftingCodexLearned, player.QuestManager.ArmorCraftingAdvancedCodexLearned);
 
                 cDt.Rows.Add(player.Serial, player.ComboManager.Combo1, player.ComboManager.Combo2, player.ComboManager.Combo3, player.ComboManager.Combo4, player.ComboManager.Combo5,
                     player.ComboManager.Combo6, player.ComboManager.Combo7, player.ComboManager.Combo8, player.ComboManager.Combo9, player.ComboManager.Combo10, player.ComboManager.Combo11,
@@ -539,8 +541,8 @@ public record AislingStorage : Sql, IAislingStorage
         {
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine("Issue with database connection");
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
         finally
@@ -576,8 +578,8 @@ public record AislingStorage : Sql, IAislingStorage
         }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
     }
@@ -599,8 +601,8 @@ public record AislingStorage : Sql, IAislingStorage
         }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
     }
@@ -631,8 +633,8 @@ public record AislingStorage : Sql, IAislingStorage
         }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
 
@@ -666,8 +668,8 @@ public record AislingStorage : Sql, IAislingStorage
         }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
 
@@ -690,8 +692,8 @@ public record AislingStorage : Sql, IAislingStorage
         }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
 
@@ -714,8 +716,8 @@ public record AislingStorage : Sql, IAislingStorage
         }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
 
@@ -761,7 +763,7 @@ public record AislingStorage : Sql, IAislingStorage
         }
         catch (SqlException e)
         {
-            ServerSetup.Logger(e.ToString());
+            ServerSetup.EventsLogger(e.ToString());
             Crashes.TrackError(e);
         }
 
@@ -787,8 +789,8 @@ public record AislingStorage : Sql, IAislingStorage
         }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
     }
@@ -870,9 +872,16 @@ public record AislingStorage : Sql, IAislingStorage
             cmd5.Parameters.Add("@ConnPotions", SqlDbType.Bit).Value = false;
             cmd5.Parameters.Add("@CryptTerror", SqlDbType.Bit).Value = false;
             cmd5.Parameters.Add("@CryptTerrorSlayed", SqlDbType.Bit).Value = false;
+            cmd5.Parameters.Add("@CryptTerrorContinued", SqlDbType.Bit).Value = false;
+            cmd5.Parameters.Add("@CryptTerrorContSlayed", SqlDbType.Bit).Value = false;
+            cmd5.Parameters.Add("@NightTerror", SqlDbType.Bit).Value = false;
+            cmd5.Parameters.Add("@NightTerrorSlayed", SqlDbType.Bit).Value = false;
+            cmd5.Parameters.Add("@DreamWalking", SqlDbType.Bit).Value = false;
+            cmd5.Parameters.Add("@DreamWalkingSlayed", SqlDbType.Bit).Value = false;
             cmd5.Parameters.Add("@Dar", SqlDbType.Int).Value = 0;
             cmd5.Parameters.Add("@DarItem", SqlDbType.VarChar).Value = "";
-            cmd5.Parameters.Add("@EternalLove", SqlDbType.Bit).Value = false;
+            cmd5.Parameters.Add("@ReleasedTodesbaum", SqlDbType.Bit).Value = false;
+            cmd5.Parameters.Add("@DrunkenHabit", SqlDbType.Bit).Value = false;
             cmd5.Parameters.Add("@Fiona", SqlDbType.Bit).Value = false;
             cmd5.Parameters.Add("@Keela", SqlDbType.Int).Value = 0;
             cmd5.Parameters.Add("@KeelaCount", SqlDbType.Int).Value = 0;
@@ -912,6 +921,24 @@ public record AislingStorage : Sql, IAislingStorage
             cmd5.Parameters.Add("@SavedChristmas", SqlDbType.Bit).Value = false;
             cmd5.Parameters.Add("@RescuedReindeer", SqlDbType.Bit).Value = false;
             cmd5.Parameters.Add("@YetiKilled", SqlDbType.Bit).Value = false;
+            cmd5.Parameters.Add("@UnknownStart", SqlDbType.Bit).Value = false;
+            cmd5.Parameters.Add("@PirateShipAccess", SqlDbType.Bit).Value = false;
+            cmd5.Parameters.Add("@ScubaSchematics", SqlDbType.Bit).Value = false;
+            cmd5.Parameters.Add("@ScubaMaterialsQuest", SqlDbType.Bit).Value = false;
+            cmd5.Parameters.Add("@ScubaGearCrafted", SqlDbType.Bit).Value = false;
+            cmd5.Parameters.Add("@EternalLove", SqlDbType.Bit).Value = false;
+            cmd5.Parameters.Add("@EternalLoveStarted", SqlDbType.Bit).Value = false;
+            cmd5.Parameters.Add("@UnhappyEnding", SqlDbType.Bit).Value = false;
+            cmd5.Parameters.Add("@HonoringTheFallen", SqlDbType.Bit).Value = false;
+            cmd5.Parameters.Add("@ReadTheFallenNotes", SqlDbType.Bit).Value = false;
+            cmd5.Parameters.Add("@GivenTarnishedBreastplate", SqlDbType.Bit).Value = false;
+            cmd5.Parameters.Add("@EternalBond", SqlDbType.VarChar).Value = "";
+            cmd5.Parameters.Add("@ArmorCraftingCodex", SqlDbType.Bit).Value = false;
+            cmd5.Parameters.Add("@ArmorApothecaryAccepted", SqlDbType.Bit).Value = false;
+            cmd5.Parameters.Add("@ArmorCodexDeciphered", SqlDbType.Bit).Value = false;
+            cmd5.Parameters.Add("@ArmorCraftingCodexLearned", SqlDbType.Bit).Value = false;
+            cmd5.Parameters.Add("@ArmorCraftingAdvancedCodexLearned", SqlDbType.Bit).Value = false;
+
 
             #endregion
 
@@ -919,8 +946,8 @@ public record AislingStorage : Sql, IAislingStorage
         }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
         finally
@@ -940,10 +967,6 @@ public record AislingStorage : Sql, IAislingStorage
         dt.Columns.Add("X", typeof(byte));
         dt.Columns.Add("Y", typeof(byte));
         dt.Columns.Add("CurrentMapId", typeof(int));
-        dt.Columns.Add("OffenseElement", typeof(string));
-        dt.Columns.Add("DefenseElement", typeof(string));
-        dt.Columns.Add("SecondaryOffensiveElement", typeof(string));
-        dt.Columns.Add("SecondaryDefensiveElement", typeof(string));
         dt.Columns.Add("Direction", typeof(byte));
         dt.Columns.Add("CurrentHp", typeof(int));
         dt.Columns.Add("BaseHp", typeof(int));
@@ -981,7 +1004,6 @@ public record AislingStorage : Sql, IAislingStorage
         dt.Columns.Add("Clan", typeof(string));
         dt.Columns.Add("ClanRank", typeof(string));
         dt.Columns.Add("ClanTitle", typeof(string));
-        dt.Columns.Add("AnimalForm", typeof(string));
         dt.Columns.Add("MonsterForm", typeof(short));
         dt.Columns.Add("ActiveStatus", typeof(string));
         dt.Columns.Add("Flags", typeof(string));
@@ -1003,8 +1025,6 @@ public record AislingStorage : Sql, IAislingStorage
         dt.Columns.Add("RaceSpell", typeof(string));
         dt.Columns.Add("GameMaster", typeof(bool));
         dt.Columns.Add("ArenaHost", typeof(bool));
-        dt.Columns.Add("Developer", typeof(bool));
-        dt.Columns.Add("Ranger", typeof(bool));
         dt.Columns.Add("Knight", typeof(bool));
         dt.Columns.Add("GoldPoints", typeof(long));
         dt.Columns.Add("StatPoints", typeof(short));
@@ -1029,19 +1049,6 @@ public record AislingStorage : Sql, IAislingStorage
         dt.Columns.Add("BootColor", typeof(byte));
         dt.Columns.Add("OverCoatColor", typeof(byte));
         dt.Columns.Add("Pants", typeof(byte));
-        dt.Columns.Add("Aegis", typeof(byte));
-        dt.Columns.Add("Bleeding", typeof(byte));
-        dt.Columns.Add("Spikes", typeof(byte));
-        dt.Columns.Add("Rending", typeof(byte));
-        dt.Columns.Add("Reaping", typeof(byte));
-        dt.Columns.Add("Vampirism", typeof(byte));
-        dt.Columns.Add("Haste", typeof(byte));
-        dt.Columns.Add("Gust", typeof(byte));
-        dt.Columns.Add("Quake", typeof(byte));
-        dt.Columns.Add("Rain", typeof(byte));
-        dt.Columns.Add("Flame", typeof(byte));
-        dt.Columns.Add("Dusk", typeof(byte));
-        dt.Columns.Add("Dawn", typeof(byte));
         return dt;
     }
 
@@ -1106,10 +1113,16 @@ public record AislingStorage : Sql, IAislingStorage
         qDt.Columns.Add("ConnPotions", typeof(bool));
         qDt.Columns.Add("CryptTerror", typeof(bool));
         qDt.Columns.Add("CryptTerrorSlayed", typeof(bool));
+        qDt.Columns.Add("CryptTerrorContinued", typeof(bool));
+        qDt.Columns.Add("CryptTerrorContSlayed", typeof(bool));
+        qDt.Columns.Add("NightTerror", typeof(bool));
+        qDt.Columns.Add("NightTerrorSlayed", typeof(bool));
+        qDt.Columns.Add("DreamWalking", typeof(bool));
+        qDt.Columns.Add("DreamWalkingSlayed", typeof(bool));
         qDt.Columns.Add("Dar", typeof(int));
         qDt.Columns.Add("DarItem", typeof(string));
+        qDt.Columns.Add("ReleasedTodesbaum", typeof(bool));
         qDt.Columns.Add("DrunkenHabit", typeof(bool));
-        qDt.Columns.Add("EternalLove", typeof(bool));
         qDt.Columns.Add("FionaDance", typeof(bool));
         qDt.Columns.Add("Keela", typeof(int));
         qDt.Columns.Add("KeelaCount", typeof(int));
@@ -1152,6 +1165,24 @@ public record AislingStorage : Sql, IAislingStorage
         qDt.Columns.Add("SavedChristmas", typeof(bool));
         qDt.Columns.Add("RescuedReindeer", typeof(bool));
         qDt.Columns.Add("YetiKilled", typeof(bool));
+        qDt.Columns.Add("UnknownStart", typeof(bool));
+        qDt.Columns.Add("PirateShipAccess", typeof(bool));
+        qDt.Columns.Add("ScubaSchematics", typeof(bool));
+        qDt.Columns.Add("ScubaMaterialsQuest", typeof(bool));
+        qDt.Columns.Add("ScubaGearCrafted", typeof(bool));
+        qDt.Columns.Add("EternalLove", typeof(bool));
+        qDt.Columns.Add("EternalLoveStarted", typeof(bool));
+        qDt.Columns.Add("UnhappyEnding", typeof(bool));
+        qDt.Columns.Add("HonoringTheFallen", typeof(bool));
+        qDt.Columns.Add("ReadTheFallenNotes", typeof(bool));
+        qDt.Columns.Add("GivenTarnishedBreastplate", typeof(bool));
+        qDt.Columns.Add("EternalBond", typeof(string));
+        qDt.Columns.Add("ArmorCraftingCodex", typeof(bool));
+        qDt.Columns.Add("ArmorApothecaryAccepted", typeof(bool));
+        qDt.Columns.Add("ArmorCodexDeciphered", typeof(bool));
+        qDt.Columns.Add("ArmorCraftingCodexLearned", typeof(bool));
+        qDt.Columns.Add("ArmorCraftingAdvancedCodexLearned", typeof(bool));
+
         return qDt;
     }
 

@@ -88,7 +88,7 @@ public class PlayerRegenerationComponent(WorldServer server) : WorldServerCompon
 
         try
         {
-            currentHp += (int)Math.Clamp(seed, 5, cap);
+            currentHp += (long)Math.Clamp(seed, 5, cap);
             client.Aisling.CurrentHp = currentHp;
 
             if (client.Aisling.CurrentHp > client.Aisling.MaximumHp)
@@ -96,7 +96,7 @@ public class PlayerRegenerationComponent(WorldServer server) : WorldServerCompon
         }
         catch (Exception ex)
         {
-            ServerSetup.Logger($"{ex}\nUnknown exception in RegenHPCalculator method.");
+            ServerSetup.EventsLogger($"{ex}\nUnknown exception in RegenHPCalculator method.");
             Crashes.TrackError(ex);
         }
     }
@@ -107,7 +107,7 @@ public class PlayerRegenerationComponent(WorldServer server) : WorldServerCompon
 
         try
         {
-            currentMp += (int)Math.Clamp(seed, 5, cap);
+            currentMp += (long)Math.Clamp(seed, 5, cap);
             client.Aisling.CurrentMp = currentMp;
 
             if (client.Aisling.CurrentMp > client.Aisling.MaximumMp)
@@ -115,7 +115,7 @@ public class PlayerRegenerationComponent(WorldServer server) : WorldServerCompon
         }
         catch (Exception ex)
         {
-            ServerSetup.Logger($"{ex}\nUnknown exception in RegenHPCalculator method.");
+            ServerSetup.EventsLogger($"{ex}\nUnknown exception in RegenHPCalculator method.");
             Crashes.TrackError(ex);
         }
     }

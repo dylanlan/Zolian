@@ -36,6 +36,7 @@ using RestSharp;
 using ServiceStack;
 
 using System.Collections.Concurrent;
+using System.Collections.Frozen;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
@@ -62,20 +63,18 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
     private readonly IClientFactory<WorldClient> _clientProvider;
     private readonly MServerTable _serverTable;
     private const string InternalIP = "192.168.50.1"; // Cannot use ServerConfig due to value needing to be constant
-    private static readonly string GameMasterIpA = ServerSetup.Instance.GmA;
-    private static readonly string GameMasterIpB = ServerSetup.Instance.GmB;
+    private static readonly string[] GameMastersIPs = ServerSetup.Instance.GameMastersIPs;
     private ConcurrentDictionary<Type, WorldServerComponent> _serverComponents;
-    public static Dictionary<(Race race, Class path, Class pastClass), string> SkillMap = new();
+    public static FrozenDictionary<(Race race, Class path, Class pastClass), string> SkillMap;
     public readonly ObjectService ObjectFactory = new();
     public readonly ObjectManager ObjectHandlers = new();
-    private readonly Stopwatch _itemGroundCheckControl = new();
-    private readonly WorldServerTimer _itemGroundCheckTimer = new(TimeSpan.FromMilliseconds(5000));
     private readonly WorldServerTimer _trapTimer = new(TimeSpan.FromSeconds(1));
     private const int GameSpeed = 30;
     private Task _componentRunTask;
     private Task _updateMundanessTask;
     private Task _updateMonstersTask;
     private Task _updateGroundItemsTask;
+    private Task _updateGroundMoneyTask;
     private Task _updateMapsTask;
     private Task _updateTrapsTasks;
     private Task _updateClientsTask;
@@ -122,14 +121,15 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
             _updateMundanessTask = Task.Run(UpdateMundanesRoutine, stoppingToken);
             _updateMonstersTask = Task.Run(UpdateMonstersRoutine, stoppingToken);
             _updateGroundItemsTask = Task.Run(UpdateGroundItemsRoutine, stoppingToken);
+            _updateGroundMoneyTask = Task.Run(UpdateGroundMoneyRoutine, stoppingToken);
             _updateMapsTask = Task.Run(UpdateMapsRoutine, stoppingToken);
             _updateTrapsTasks = Task.Run(UpdateTrapsRoutine, stoppingToken);
             _updateClientsTask = Task.Run(UpdateClients, stoppingToken);
         }
         catch (Exception ex)
         {
-            ServerSetup.Logger(ex.Message, LogLevel.Error);
-            ServerSetup.Logger(ex.StackTrace, LogLevel.Error);
+            ServerSetup.ConnectionLogger(ex.Message, LogLevel.Error);
+            ServerSetup.ConnectionLogger(ex.StackTrace, LogLevel.Error);
             Crashes.TrackError(ex);
         }
 
@@ -156,12 +156,13 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
         };
 
         Console.WriteLine();
-        ServerSetup.Logger($"Server Components Loaded: {_serverComponents.Count}");
+        ServerSetup.ConnectionLogger($"Server Components Loaded: {_serverComponents.Count}");
     }
 
     private static void SkillMapper()
     {
-        SkillMap = new Dictionary<(Race race, Class path, Class pastClass), string>
+        // Pre-allocation to a prime number
+        var skillMap = new Dictionary<(Race race, Class path, Class pastClass), string>(397)
         {
             {(Race.Human, Class.Berserker, Class.Berserker), "SClass1"},
             {(Race.Human, Class.Berserker, Class.Defender), "SClass2"},
@@ -560,6 +561,9 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
             {(Race.Merfolk, Class.Monk, Class.Arcanus), "SClass395"},
             {(Race.Merfolk, Class.Monk, Class.Monk), "SClass396"}
         };
+
+        // Set frozen dict then cleanup unused dict
+        SkillMap = skillMap.ToFrozenDictionary();
     }
 
     #endregion
@@ -691,7 +695,7 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
         }
     }
 
-    private void UpdateGroundItemsRoutine()
+    private static void UpdateGroundItemsRoutine()
     {
         var groundWatch = new Stopwatch();
         groundWatch.Start();
@@ -699,13 +703,27 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
         while (ServerSetup.Instance.Running)
         {
             var groundElapsed = groundWatch.Elapsed;
-            if (groundElapsed.TotalMilliseconds < 1000) continue;
+            if (groundElapsed.TotalMinutes < 1) continue;
             UpdateGroundItems();
             groundWatch.Restart();
         }
     }
 
-    private void UpdateMundanesRoutine()
+    private static void UpdateGroundMoneyRoutine()
+    {
+        var groundWatch = new Stopwatch();
+        groundWatch.Start();
+
+        while (ServerSetup.Instance.Running)
+        {
+            var groundElapsed = groundWatch.Elapsed;
+            if (groundElapsed.TotalMinutes < 1) continue;
+            UpdateGroundMoney();
+            groundWatch.Restart();
+        }
+    }
+
+    private static void UpdateMundanesRoutine()
     {
         var mundanesWatch = new Stopwatch();
         mundanesWatch.Start();
@@ -719,7 +737,7 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
         }
     }
 
-    private void UpdateMonstersRoutine()
+    private static void UpdateMonstersRoutine()
     {
         var monstersWatch = new Stopwatch();
         monstersWatch.Start();
@@ -733,7 +751,7 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
         }
     }
 
-    private void UpdateMapsRoutine()
+    private static void UpdateMapsRoutine()
     {
         var gameWatch = new Stopwatch();
         gameWatch.Start();
@@ -801,8 +819,8 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
                 }
                 catch (Exception ex)
                 {
-                    ServerSetup.Logger(ex.Message, LogLevel.Error);
-                    ServerSetup.Logger(ex.StackTrace, LogLevel.Error);
+                    ServerSetup.EventsLogger(ex.Message, LogLevel.Error);
+                    ServerSetup.EventsLogger(ex.StackTrace, LogLevel.Error);
                     Crashes.TrackError(ex);
 
                     clientsToRemove.Add(player.Client.Id);
@@ -820,16 +838,8 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
         }
     }
 
-    private void UpdateGroundItems()
+    private static void UpdateGroundItems()
     {
-        if (!_itemGroundCheckControl.IsRunning)
-        {
-            _itemGroundCheckControl.Start();
-        }
-
-        if (_itemGroundCheckControl.Elapsed.TotalMilliseconds < _itemGroundCheckTimer.Delay.TotalMilliseconds) return;
-        _itemGroundCheckControl.Restart();
-
         try
         {
             // Routine to check items that have been on the ground longer than 30 minutes
@@ -855,13 +865,39 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
         }
     }
 
+    private static void UpdateGroundMoney()
+    {
+        try
+        {
+            foreach (var money in ServerSetup.Instance.GlobalGroundMoneyCache.Values)
+            {
+                if (money == null) continue;
+                var abandonedDiff = DateTime.UtcNow.Subtract(money.AbandonedDate);
+                if (abandonedDiff.TotalMinutes <= 30) continue;
+                var removed = ServerSetup.Instance.GlobalGroundMoneyCache.TryRemove(money.MoneyId, out var itemToBeRemoved);
+                if (!removed) return;
+                itemToBeRemoved.Remove();
+            }
+        }
+        catch (Exception ex)
+        {
+            // Track issues in App Center only
+            Crashes.TrackError(ex);
+        }
+    }
+
     private static void UpdateMonsters(TimeSpan elapsedTime)
     {
         try
         {
-            foreach (var monster in ServerSetup.Instance.GlobalMonsterCache.Values)
+            Parallel.ForEach(ServerSetup.Instance.GlobalMonsterCache.Values, monster =>
             {
-                if (monster?.Scripts == null) continue;
+                if (monster.Scripts == null)
+                {
+                    ServerSetup.Instance.GlobalMonsterCache.TryRemove(monster.Serial, out _);
+                    return;
+                }
+
                 if (monster.CurrentHp <= 0)
                 {
                     monster.Skulled = true;
@@ -875,38 +911,27 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
                         monster.Scripts.Values.First().OnDeath();
                     }
 
-                    continue;
+                    return;
                 }
 
                 monster.Scripts.Values.First().Update(elapsedTime);
-
-                foreach (var trap in ServerSetup.Instance.Traps.Values)
-                {
-                    if (trap?.Owner == null || trap.Owner.Serial == monster.Serial ||
-                        monster.X != trap.Location.X || monster.Y != trap.Location.Y ||
-                        monster.Map != trap.TrapItem.Map) continue;
-
-                    var triggered = Trap.Activate(trap, monster);
-                    if (triggered) break;
-                }
+                monster.LastUpdated = DateTime.UtcNow;
 
                 if (!monster.MonsterBuffAndDebuffStopWatch.IsRunning)
                     monster.MonsterBuffAndDebuffStopWatch.Start();
 
-                monster.LastUpdated = DateTime.UtcNow;
-
                 if (monster.MonsterBuffAndDebuffStopWatch.Elapsed.TotalMilliseconds <
-                    monster.BuffAndDebuffTimer.Delay.TotalMilliseconds) continue;
+                    monster.BuffAndDebuffTimer.Delay.TotalMilliseconds) return;
 
                 monster.UpdateBuffs(elapsedTime);
                 monster.UpdateDebuffs(elapsedTime);
                 monster.MonsterBuffAndDebuffStopWatch.Restart();
-            }
+            });
         }
         catch (Exception ex)
         {
-            ServerSetup.Logger(ex.Message, LogLevel.Error);
-            ServerSetup.Logger(ex.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(ex.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(ex.StackTrace, LogLevel.Error);
             Crashes.TrackError(ex);
         }
     }
@@ -924,8 +949,8 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
         }
         catch (Exception ex)
         {
-            ServerSetup.Logger(ex.Message, LogLevel.Error);
-            ServerSetup.Logger(ex.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(ex.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(ex.StackTrace, LogLevel.Error);
             Crashes.TrackError(ex);
         }
     }
@@ -940,8 +965,8 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
         }
         catch (Exception ex)
         {
-            ServerSetup.Logger(ex.Message, LogLevel.Error);
-            ServerSetup.Logger(ex.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(ex.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(ex.StackTrace, LogLevel.Error);
             Crashes.TrackError(ex);
         }
     }
@@ -954,9 +979,36 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
         }
         catch (Exception ex)
         {
-            ServerSetup.Logger(ex.Message, LogLevel.Error);
-            ServerSetup.Logger(ex.StackTrace, LogLevel.Error);
             Crashes.TrackError(ex);
+            Analytics.TrackEvent($"Map failed to update; Reload Maps initiated: {DateTime.UtcNow}");
+
+            // Wipe Caches
+            ServerSetup.Instance.TempGlobalMapCache = [];
+            ServerSetup.Instance.TempGlobalWarpTemplateCache = [];
+
+            foreach (var mon in ServerSetup.Instance.GlobalMonsterCache.Values)
+            {
+                ServerSetup.Instance.Game.ObjectHandlers.DelObject(mon);
+            }
+
+            ServerSetup.Instance.GlobalMonsterCache = [];
+
+            foreach (var npc in ServerSetup.Instance.GlobalMundaneCache.Values)
+            {
+                ServerSetup.Instance.Game.ObjectHandlers.DelObject(npc);
+            }
+
+            ServerSetup.Instance.GlobalMundaneCache = [];
+
+            // Reload
+            AreaStorage.Instance.CacheFromDatabase();
+            DatabaseLoad.CacheFromDatabase(new WarpTemplate());
+
+            foreach (var connected in ServerSetup.Instance.Game.Aislings)
+            {
+                connected.Client.SendServerMessage(ServerMessageType.ActiveMessage, "{=qSelf-Heal Routine Invokes Reload Maps");
+                connected.Client.ClientRefreshed();
+            }
         }
     }
 
@@ -969,8 +1021,8 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
         }
         catch (Exception ex)
         {
-            ServerSetup.Logger(ex.Message, LogLevel.Error);
-            ServerSetup.Logger(ex.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(ex.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(ex.StackTrace, LogLevel.Error);
             Crashes.TrackError(ex);
         }
     }
@@ -1025,7 +1077,7 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
         if (client?.Aisling?.Map is not { Ready: true }) return default;
         var readyTime = DateTime.UtcNow;
         if (readyTime.Subtract(client.LastMapUpdated).TotalSeconds > 1)
-            if (readyTime.Subtract(client.LastMovement).TotalSeconds < 0.2) return default;
+            if (readyTime.Subtract(client.LastMovement).TotalSeconds < 0.30 && client.Aisling.MonsterForm == 0) return default;
 
         if (client.Aisling.CantMove)
         {
@@ -1074,14 +1126,14 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
 
                 localClient.Aisling.Map.Script.Item2.OnPlayerWalk(localClient.Aisling.Client, localClient.Aisling.LastPosition, localClient.Aisling.Position);
 
-                if (!localClient.Aisling.Map.Flags.MapFlagIsSet(MapFlags.PlayerKill)) return default;
-
                 foreach (var trap in ServerSetup.Instance.Traps.Select(i => i.Value))
                 {
                     if (trap?.Owner == null || trap.Owner.Serial == localClient.Aisling.Serial ||
                         localClient.Aisling.X != trap.Location.X ||
                         localClient.Aisling.Y != trap.Location.Y ||
                         localClient.Aisling.Map != trap.TrapItem.Map) continue;
+
+                    if (trap.Owner is Aisling && !localClient.Aisling.Map.Flags.MapFlagIsSet(MapFlags.PlayerKill)) continue;
 
                     var triggered = Trap.Activate(trap, localClient.Aisling);
                     if (triggered) break;
@@ -1190,7 +1242,7 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
 
                 if (obj is not Money money) continue;
 
-                money.GiveTo(money.Amount, localClient.Aisling);
+                Money.GiveTo(money, localClient.Aisling);
             }
 
             return default;
@@ -1204,6 +1256,12 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
     {
         if (client?.Aisling is null || client.Aisling.LoggedIn == false) return default;
         if (client.Aisling.Map is not { Ready: true }) return default;
+        if (client.Aisling.Map.Flags.MapFlagIsSet(MapFlags.CantDropItems))
+        {
+            client.SendServerMessage(ServerMessageType.OrangeBar1, "You cannot do that.");
+            return default;
+        }
+
         if (client.Aisling.IsDead())
         {
             client.SendServerMessage(ServerMessageType.OrangeBar1, "You cannot do that.");
@@ -1251,7 +1309,7 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
 
             var itemPosition = new Position(destinationPoint.X, destinationPoint.Y);
 
-            if (localClient.Aisling.Position.DistanceFrom(itemPosition.X, itemPosition.Y) > 9)
+            if (localClient.Aisling.Position.DistanceFrom(itemPosition.X, itemPosition.Y) > 11)
             {
                 localClient.SendServerMessage(ServerMessageType.ActiveMessage, "I can not do that. Too far.");
                 return default;
@@ -1279,13 +1337,6 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
                 {
                     localClient.Aisling.Inventory.RemoveFromInventory(localClient.Aisling.Client, item);
                     item.Release(localClient.Aisling, new Position(destinationPoint.X, destinationPoint.Y));
-
-                    // Mileth Altar 
-                    if (localClient.Aisling.Map.ID == 500)
-                    {
-                        if (itemPosition.X == 31 && itemPosition.Y == 52 || itemPosition.X == 31 && itemPosition.Y == 53)
-                            item.Remove();
-                    }
                 }
                 else
                 {
@@ -1300,18 +1351,13 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
                         ItemQuality = item.ItemQuality,
                         OriginalQuality = item.OriginalQuality,
                         Stacks = (ushort)count,
-                        Template = item.Template
+                        Template = item.Template,
+                        AbandonedDate = DateTime.UtcNow
                     };
 
-                    temp.AbandonedDate = DateTime.UtcNow;
                     temp.Release(localClient.Aisling, itemPosition);
 
-                    // Mileth Altar 
-                    if (localClient.Aisling.Map.ID == 500)
-                    {
-                        if (itemPosition.X == 31 && itemPosition.Y == 52 || itemPosition.X == 31 && itemPosition.Y == 53)
-                            temp.Remove();
-                    }
+                    CheckAltar(localClient, temp);
 
                     item.Stacks = (ushort)remaining;
                     localClient.SendRemoveItemFromPane(item.InventorySlot);
@@ -1325,17 +1371,6 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
                 {
                     localClient.Aisling.Inventory.RemoveFromInventory(localClient.Aisling.Client, item);
                     item.Release(localClient.Aisling, new Position(destinationPoint.X, destinationPoint.Y));
-
-                    // Mileth Altar 
-                    if (localClient.Aisling.Map.ID == 500)
-                    {
-                        if (itemPosition.X == 31 && itemPosition.Y == 52 ||
-                            itemPosition.X == 31 && itemPosition.Y == 53)
-                        {
-                            ServerSetup.Instance.GlobalGroundItemCache.TryRemove(item.ItemId, out _);
-                            item.Remove();
-                        }
-                    }
                 }
             }
 
@@ -1353,6 +1388,29 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
             }
 
             return default;
+        }
+    }
+
+    private static void CheckAltar(IWorldClient client, IItem item)
+    {
+        switch (client.Aisling.Map.ID)
+        {
+            // Mileth Altar
+            case 500:
+            {
+                if ((item.X != 31 || item.Y != 52) && (item.X != 31 || item.Y != 53)) return;
+                ServerSetup.Instance.GlobalGroundItemCache.TryRemove(item.ItemId, out _);
+                item.Remove();
+                return;
+            }
+            // Undine Altar
+            case 504:
+            {
+                if ((item.X != 62 || item.Y != 47) && (item.X != 62 || item.Y != 48)) return;
+                ServerSetup.Instance.GlobalGroundItemCache.TryRemove(item.ItemId, out _);
+                item.Remove();
+                return;
+            }
         }
     }
 
@@ -1535,13 +1593,20 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
         if (client?.Aisling == null) return default;
         if (!client.Aisling.LoggedIn) return default;
         if (client.Aisling.IsDead() || client.Aisling.Skulled) return default;
+
+        if (client.Aisling.Map.Flags.MapFlagIsSet(MapFlags.CantUseAbilities))
+        {
+            client.SendServerMessage(ServerMessageType.OrangeBar1, "You cannot do that.");
+            return default;
+        }
+
         var args = PacketSerializer.Deserialize<SpellUseArgs>(in clientPacket);
 
         if (!client.Aisling.Client.SpellControl.IsRunning)
             client.Aisling.Client.SpellControl.Start();
 
         if (client.Aisling.Client.SpellControl.Elapsed.TotalMilliseconds <
-            client.Aisling.Client.SkillSpellTimer.Delay.TotalMilliseconds - 350) return default;
+            client.Aisling.Client.SkillSpellTimer.Delay.TotalMilliseconds - 200) return default;
 
         client.Aisling.Client.SpellControl.Restart();
         return ExecuteHandler(client, args, InnerOnUseSpell);
@@ -1665,7 +1730,7 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
         {
             if (!RedirectManager.TryGetRemove(localArgs.Id, out var redirect))
             {
-                ServerSetup.Logger($"{client.RemoteIp} tried to redirect to the world with invalid details.");
+                ServerSetup.ConnectionLogger($"{client.RemoteIp} tried to redirect to the world with invalid details.");
                 localClient.Disconnect();
                 return default;
             }
@@ -1673,19 +1738,19 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
             //keep this case sensitive
             if (localArgs.Name != redirect.Name)
             {
-                ServerSetup.Logger($"{client.RemoteIp} tried to impersonate a redirect with redirect {redirect.Id}.");
+                ServerSetup.ConnectionLogger($"{client.RemoteIp} tried to impersonate a redirect with redirect {redirect.Id}.");
                 localClient.Disconnect();
                 return default;
             }
 
-            ServerSetup.Logger($"Received successful redirect: {redirect.Id}");
+            ServerSetup.ConnectionLogger($"Received successful redirect: {redirect.Id}");
             var existingAisling = Aislings.FirstOrDefault(user => user.Username.EqualsI(redirect.Name));
 
             //double logon, disconnect both clients
             if (existingAisling == null && redirect.Type != ServerType.Lobby) return LoadAislingAsync(localClient, redirect);
             localClient.Disconnect();
             if (redirect.Type == ServerType.Lobby) return default;
-            ServerSetup.Logger($"Duplicate login, player {redirect.Name}, disconnecting both clients.");
+            ServerSetup.ConnectionLogger($"Duplicate login, player {redirect.Name}, disconnecting both clients.");
             existingAisling?.Client.Disconnect();
             return default;
         }
@@ -1701,7 +1766,7 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
             var aisling = await StorageManager.AislingBucket.LoadAisling(redirect.Name, exists.Serial);
             if (aisling == null)
             {
-                ServerSetup.Logger($"Unable to retrieve player data: {client.RemoteIp}");
+                ServerSetup.ConnectionLogger($"Unable to retrieve player data: {client.RemoteIp}");
                 client.Disconnect();
                 return;
             }
@@ -1716,7 +1781,7 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
             if (client.Aisling._Str <= 0 || client.Aisling._Int <= 0 || client.Aisling._Wis <= 0 ||
                 client.Aisling._Con <= 0 || client.Aisling._Dex <= 0)
             {
-                ServerSetup.Logger($"Player {client.Aisling.Username} has corrupt stats.");
+                ServerSetup.ConnectionLogger($"Player {client.Aisling.Username} has corrupt stats.");
                 client.Disconnect();
                 return;
             }
@@ -1731,13 +1796,12 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
 
             if (aisling.GameMaster)
             {
-                var gmA = IPAddress.Parse(GameMasterIpA);
-                var gmB = IPAddress.Parse(GameMasterIpB);
                 var ipLocal = IPAddress.Parse(ServerSetup.Instance.InternalAddress);
 
-                if (!(client.RemoteIp.Equals(gmA) || client.RemoteIp.Equals(gmB) || client.IsLoopback() || client.RemoteIp.Equals(ipLocal)))
+                if (!GameMastersIPs.Any(ip => client.RemoteIp.Equals(IPAddress.Parse(ip))) 
+                    && !client.IsLoopback() && !client.RemoteIp.Equals(ipLocal))
                 {
-                    ServerSetup.Logger($"Failed to login GM from {client.RemoteIp}.");
+                    ServerSetup.ConnectionLogger($"Failed to login GM from {client.RemoteIp}.");
                     Analytics.TrackEvent($"Failed to login GM from {client.RemoteIp}.");
                     client.Disconnect();
                     return;
@@ -1750,7 +1814,7 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
 
                 if (load == null)
                 {
-                    ServerSetup.Logger($"Failed to load player to client - exiting");
+                    ServerSetup.ConnectionLogger($"Failed to load player to client - exiting");
                     client.Disconnect();
                     return;
                 }
@@ -1775,21 +1839,22 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
             }
             catch (Exception e)
             {
-                ServerSetup.Logger($"Failed to add player {redirect.Name} to world server.");
+                ServerSetup.ConnectionLogger($"Failed to add player {redirect.Name} to world server.");
                 Crashes.TrackError(e);
                 client.Disconnect();
             }
         }
         catch (Exception e)
         {
-            ServerSetup.Logger($"Client with ip {client.RemoteIp} failed to load player {redirect.Name}.");
+            ServerSetup.ConnectionLogger($"Client with ip {client.RemoteIp} failed to load player {redirect.Name}.");
             Crashes.TrackError(e);
             client.Disconnect();
         }
         finally
         {
             var time = DateTime.UtcNow;
-            ServerSetup.Logger($"{redirect.Name} logged in at: {time}");
+            ServerSetup.ConnectionLogger($"{redirect.Name} logged in at: {time}");
+            Analytics.TrackEvent($"{client.Aisling.Username} logged in at {DateTime.Now} local time on {client.RemoteIp}");
         }
     }
 
@@ -1835,6 +1900,13 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
     {
         if (!client.Aisling.LoggedIn) return default;
         if (client.Aisling.IsDead()) return default;
+
+        if (client.Aisling.Map.Flags.MapFlagIsSet(MapFlags.CantUseAbilities))
+        {
+            client.SendServerMessage(ServerMessageType.OrangeBar1, "You cannot do that.");
+            return default;
+        }
+
         var readyTime = DateTime.UtcNow;
         var overburden = 0;
         if (client.Aisling.Overburden)
@@ -1962,25 +2034,19 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
                 case "#" when client.Aisling.GameMaster:
                     foreach (var player in Aislings)
                     {
-                        player.Client?.SendServerMessage(ServerMessageType.ActiveMessage, $"{{=c{client.Aisling.Username}: {message}");
+                        player.Client?.SendServerMessage(ServerMessageType.GroupChat, $"{{=b{client.Aisling.Username}{{=q: {message}");
                     }
                     return default;
                 case "#" when client.Aisling.GameMaster != true:
                     client.SystemMessage("You cannot broadcast in this way.");
                     return default;
-                case "!" when !string.IsNullOrEmpty(client.Aisling.Clan):
+                case "!":
                     foreach (var player in Aislings)
                     {
                         if (player.Client is null) continue;
                         if (!player.GameSettings.GroupChat) continue;
-                        if (player.Clan == client.Aisling.Clan)
-                        {
-                            player.Client.SendServerMessage(ServerMessageType.GuildChat, $"<!{client.Aisling.Username}> {message}");
-                        }
+                        player.Client.SendServerMessage(ServerMessageType.GuildChat, $"{{=q{client.Aisling.Username}{{=a: {message}");
                     }
-                    return default;
-                case "!" when string.IsNullOrEmpty(client.Aisling.Clan):
-                    client.SystemMessage("{=eYou're not in a guild.");
                     return default;
                 case "!!" when client.Aisling.PartyMembers != null:
                     foreach (var player in Aislings)
@@ -2078,9 +2144,9 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
                 return default;
             }
 
-            if (localClient.Aisling.HasDebuff("Skulled") || localClient.Aisling.IsFrozen || localClient.Aisling.IsStopped)
+            if (localClient.Aisling.Map.Flags.MapFlagIsSet(MapFlags.CantUseItems))
             {
-                localClient.SendServerMessage(ServerMessageType.ActiveMessage, "You cannot do that.");
+                localClient.SendServerMessage(ServerMessageType.OrangeBar1, "You cannot do that.");
                 return default;
             }
 
@@ -2090,10 +2156,16 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
                 localClient.SendServerMessage(ServerMessageType.ActiveMessage, "Slow down");
                 return default;
             }
-
+            
             var item = localClient.Aisling.Inventory.Get(i => i != null && i.InventorySlot == localArgs.SourceSlot).FirstOrDefault();
-
             if (item?.Template == null) return default;
+
+            if ((localClient.Aisling.HasDebuff("Skulled") || localClient.Aisling.IsFrozen || localClient.Aisling.IsStopped) && item.Template.Name != "Betrayal Blossom")
+            {
+                localClient.SendServerMessage(ServerMessageType.ActiveMessage, "You cannot do that.");
+                return default;
+            }
+
             if (item.Template.Flags.FlagIsSet(ItemFlags.Equipable))
                 localClient.LastEquip = DateTime.UtcNow;
 
@@ -2548,17 +2620,17 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
                 case PanelType.Inventory:
                     var itemSwap = localClient.Aisling.Inventory.TrySwap(localClient.Aisling.Client, slot1, slot2);
                     if (itemSwap is { Item1: false, Item2: 0 })
-                        ServerSetup.Logger($"{localClient.Aisling.Username} - Swap item issue");
+                        ServerSetup.EventsLogger($"{localClient.Aisling.Username} - Swap item issue");
                     break;
                 case PanelType.SpellBook:
                     var spellSwap = localClient.Aisling.SpellBook.AttemptSwap(localClient.Aisling.Client, slot1, slot2);
                     if (!spellSwap)
-                        ServerSetup.Logger($"{localClient.Aisling.Username} - Swap item issue");
+                        ServerSetup.EventsLogger($"{localClient.Aisling.Username} - Swap item issue");
                     break;
                 case PanelType.SkillBook:
                     var skillSwap = localClient.Aisling.SkillBook.AttemptSwap(localClient.Aisling.Client, slot1, slot2);
                     if (!skillSwap)
-                        ServerSetup.Logger($"{localClient.Aisling.Username} - Swap item issue");
+                        ServerSetup.EventsLogger($"{localClient.Aisling.Username} - Swap item issue");
                     break;
                 case PanelType.Equipment:
                     break;
@@ -2922,6 +2994,12 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
             return default;
         }
 
+        if (client.Aisling.Map.Flags.MapFlagIsSet(MapFlags.CantUseAbilities))
+        {
+            client.SendServerMessage(ServerMessageType.OrangeBar1, "You cannot do that.");
+            return default;
+        }
+
         var args = PacketSerializer.Deserialize<SkillUseArgs>(in clientPacket);
         return ExecuteHandler(client, args, InnerOnUseSkill);
 
@@ -2989,21 +3067,7 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
             return default;
         }
     }
-
-    public ValueTask OnException(IWorldClient client, in ClientPacket clientPacket)
-    {
-        var args = PacketSerializer.Deserialize<ExceptionArgs>(in clientPacket);
-        return ExecuteHandler(client, args, InnerOnException);
-
-        ValueTask InnerOnException(IWorldClient localClient, ExceptionArgs localArgs)
-        {
-            var ex = localArgs.exceptionMsg;
-            client.Save();
-            Crashes.TrackError(new Exception($"{ex}"));
-            return default;
-        }
-    }
-
+    
     /// <summary>
     /// 0x43 - Client Click (map, player, npc, monster) - F1 Button
     /// </summary>
@@ -3346,21 +3410,27 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
         if (client?.Aisling == null) return default;
         if (!client.Aisling.LoggedIn) return default;
         if (client.Aisling.IsDead()) return default;
+
+        if (client.Aisling.Map.Flags.MapFlagIsSet(MapFlags.CantUseItems))
+        {
+            client.SendServerMessage(ServerMessageType.OrangeBar1, "You cannot do that.");
+            return default;
+        }
+
         var args = PacketSerializer.Deserialize<BeginChantArgs>(in clientPacket);
         return ExecuteHandler(client, args, InnerOnBeginChant);
 
         static ValueTask InnerOnBeginChant(IWorldClient localClient, BeginChantArgs localArgs)
         {
             localClient.Aisling.IsCastingSpell = true;
+            if (localArgs.CastLineCount <= 0) return default;
 
-            if (localArgs.CastLineCount <= 0)
-                return default;
-            localClient.Aisling.ChantTimer.Start(localArgs.CastLineCount);
             localClient.SpellCastInfo ??= new CastInfo
             {
                 SpellLines = Math.Clamp(localArgs.CastLineCount, (byte)0, (byte)9),
                 Started = DateTime.UtcNow
             };
+
             return default;
         }
     }
@@ -3486,7 +3556,7 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
         try
         {
             if (handler is not null) return handler(client, in packet);
-            ServerSetup.Logger($"Unknown message with code {opCode} from {client.RemoteIp}", LogLevel.Error);
+            ServerSetup.PacketLogger($"Unknown message with code {opCode} from {client.RemoteIp}", LogLevel.Error);
             Crashes.TrackError(new Exception($"Unknown message with code {opCode} from {client.RemoteIp}"));
         }
         catch
@@ -3531,7 +3601,6 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
         ClientHandlers[(byte)ClientOpCode.BoardRequest] = OnBoardRequest; // 0x3B
         ClientHandlers[(byte)ClientOpCode.UseSkill] = OnUseSkill; // 0x3E
         ClientHandlers[(byte)ClientOpCode.WorldMapClick] = OnWorldMapClick; // 0x3F
-        ClientHandlers[(byte)ClientOpCode.Exception] = OnException;
         ClientHandlers[(byte)ClientOpCode.Click] = OnClick; // 0x43
         ClientHandlers[(byte)ClientOpCode.Unequip] = OnUnequip; // 0x44
         ClientHandlers[(byte)ClientOpCode.HeartBeat] = OnHeartBeatAsync; // 0x45
@@ -3544,16 +3613,13 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
         ClientHandlers[(byte)ClientOpCode.MetaDataRequest] = OnMetaDataRequest; // 0x7B
     }
 
-    protected override void OnConnection(IAsyncResult ar)
+    protected override void OnConnected(Socket clientSocket)
     {
-        var serverSocket = (Socket)ar.AsyncState!;
-        var clientSocket = serverSocket.EndAccept(ar);
-        ServerSetup.Logger($"World connection from {clientSocket.RemoteEndPoint as IPEndPoint}");
-        serverSocket.BeginAccept(OnConnection, serverSocket);
+        ServerSetup.ConnectionLogger($"World connection from {clientSocket.RemoteEndPoint as IPEndPoint}");
 
         if (clientSocket.RemoteEndPoint is not IPEndPoint ip)
         {
-            ServerSetup.Logger("Socket not a valid endpoint");
+            ServerSetup.ConnectionLogger("Socket not a valid endpoint");
             return;
         }
 
@@ -3584,7 +3650,7 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
 
         if (!ClientRegistry.TryAdd(client))
         {
-            ServerSetup.Logger("Two clients ended up with the same id - newest client disconnected");
+            ServerSetup.ConnectionLogger("Two clients ended up with the same id - newest client disconnected");
             try
             {
                 client.Disconnect();
@@ -3609,9 +3675,9 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
             {
                 // ignored
             }
-            ServerSetup.Logger("---------World-Server---------");
+            ServerSetup.ConnectionLogger("---------World-Server---------");
             var comment = $"{ipAddress} has been blocked for violating security protocols through improper port access.";
-            ServerSetup.Logger(comment, LogLevel.Warning);
+            ServerSetup.ConnectionLogger(comment, LogLevel.Warning);
             ReportEndpoint(ipAddress.ToString(), comment);
             return;
         }
@@ -3633,7 +3699,7 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
         if (aisling.Client.ExitConfirmed)
         {
             await StorageManager.AislingBucket.AuxiliarySave(client.Aisling);
-            ServerSetup.Logger($"{client.Aisling.Username} either logged out or was removed from the server.");
+            ServerSetup.ConnectionLogger($"{client.Aisling.Username} either logged out or was removed from the server.");
             return;
         }
 
@@ -3658,12 +3724,11 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
             // Cleanup
             client.Aisling.Remove(true);
             ClientRegistry.TryRemove(client.Id, out _);
-            ServerSetup.Logger($"{client.Aisling.Username} either logged out or was removed from the server.");
+            ServerSetup.ConnectionLogger($"{client.Aisling.Username} either logged out or was removed from the server.");
         }
-        catch (Exception ex)
+        catch
         {
-            ServerSetup.Logger($"Exception thrown while {aisling?.Username} was trying to disconnect");
-            Crashes.TrackError(ex);
+            // ignored
         }
     }
 
@@ -3683,7 +3748,7 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
             var keyCode = ServerSetup.Instance.KeyCode;
             if (keyCode is null || keyCode.Length == 0)
             {
-                ServerSetup.Logger("Keycode not valid or not set within ServerConfig.json");
+                ServerSetup.ConnectionLogger("Keycode not valid or not set within ServerConfig.json");
                 return false;
             }
 
@@ -3702,7 +3767,7 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
 
                 if (json is null || json.Length == 0)
                 {
-                    ServerSetup.Logger($"{remoteIp} - API Issue, response is null or length is 0");
+                    ServerSetup.ConnectionLogger($"{remoteIp} - API Issue, response is null or length is 0");
                     return false;
                 }
 
@@ -3715,47 +3780,47 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
 
                 if (tor == true)
                 {
-                    ServerSetup.Logger("---------World-Server---------");
-                    ServerSetup.Logger($"{remoteIp} is using tor and automatically blocked", LogLevel.Warning);
+                    ServerSetup.ConnectionLogger("---------World-Server---------");
+                    ServerSetup.ConnectionLogger($"{remoteIp} is using tor and automatically blocked", LogLevel.Warning);
                     return true;
                 }
 
                 if (usageType == "Reserved")
                 {
-                    ServerSetup.Logger("---------World-Server---------");
-                    ServerSetup.Logger($"{remoteIp} was blocked due to being a reserved address (bogon)", LogLevel.Warning);
+                    ServerSetup.ConnectionLogger("---------World-Server---------");
+                    ServerSetup.ConnectionLogger($"{remoteIp} was blocked due to being a reserved address (bogon)", LogLevel.Warning);
                     return true;
                 }
 
                 switch (abuseConfidenceScore)
                 {
                     case >= 5:
-                        ServerSetup.Logger("---------World-Server---------");
+                        ServerSetup.ConnectionLogger("---------World-Server---------");
                         var comment = $"{remoteIp} has been blocked due to a high risk assessment score of {abuseConfidenceScore}, indicating a recognized malicious entity.";
-                        ServerSetup.Logger(comment, LogLevel.Warning);
+                        ServerSetup.ConnectionLogger(comment, LogLevel.Warning);
                         ReportEndpoint(remoteIp, comment);
                         return true;
                     case >= 0:
                         return false;
                     case null:
                         // Can be null if there is an error in the API, don't want to punish players if its the APIs fault
-                        ServerSetup.Logger($"{remoteIp} - API Issue, confidence score was null");
+                        ServerSetup.ConnectionLogger($"{remoteIp} - API Issue, confidence score was null");
                         return false;
                 }
             }
             else
             {
                 // Can be null if there is an error in the API, don't want to punish players if its the APIs fault
-                ServerSetup.Logger($"{remoteIp} - API Issue, response was not successful");
+                ServerSetup.ConnectionLogger($"{remoteIp} - API Issue, response was not successful");
                 return false;
             }
         }
         catch (Exception ex)
         {
-            ServerSetup.Logger("Unknown issue with IPDB, connections refused", LogLevel.Warning);
-            ServerSetup.Logger($"{ex}");
+            ServerSetup.ConnectionLogger("Unknown issue with IPDB, connections refused", LogLevel.Warning);
+            ServerSetup.ConnectionLogger($"{ex}");
             Crashes.TrackError(ex);
-            return true;
+            return false;
         }
 
         return true;
@@ -3766,7 +3831,7 @@ public sealed class WorldServer : ServerBase<IWorldClient>, IWorldServer<IWorldC
         var keyCode = ServerSetup.Instance.KeyCode;
         if (keyCode is null || keyCode.Length == 0)
         {
-            ServerSetup.Logger("Keycode not valid or not set within ServerConfig.json");
+            ServerSetup.ConnectionLogger("Keycode not valid or not set within ServerConfig.json");
             return;
         }
 

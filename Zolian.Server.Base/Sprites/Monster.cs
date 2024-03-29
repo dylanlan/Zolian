@@ -58,7 +58,7 @@ public sealed class Monster : Sprite, IDialogSourceEntity
     public WorldServerTimer BashTimer { get; init; }
     public WorldServerTimer AbilityTimer { get; init; }
     public WorldServerTimer CastTimer { get; init; }
-    public MonsterTemplate Template { get; set; }
+    public MonsterTemplate Template { get; init; }
     public WorldServerTimer WalkTimer { get; init; }
     public WorldServerTimer ObjectUpdateTimer { get; init; }
     public bool IsAlive => CurrentHp > 0;
@@ -130,6 +130,19 @@ public sealed class Monster : Sprite, IDialogSourceEntity
 
         var script = ScriptManager.Load<RewardScript>(ServerSetup.Instance.Config.MonsterRewardScript, this, player).FirstOrDefault();
         script.Value?.GenerateRewards(this, player);
+
+        Rewarded = true;
+        player.UpdateStats();
+    }
+
+    public void GenerateInanimateRewards(Aisling player)
+    {
+        if (Rewarded) return;
+        if (player.Equals(null)) return;
+        if (player.Client.Aisling == null) return;
+
+        var script = ScriptManager.Load<RewardScript>(ServerSetup.Instance.Config.MonsterRewardScript, this, player).FirstOrDefault();
+        script.Value?.GenerateInanimateRewards(this, player);
 
         Rewarded = true;
         player.UpdateStats();

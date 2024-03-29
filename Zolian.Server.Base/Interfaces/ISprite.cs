@@ -38,13 +38,13 @@ public interface ISprite
 
     #region Stats
 
-    int CurrentHp { get; set; }
-    int BaseHp { get; set; }
-    int BonusHp { get; set; }
+    long CurrentHp { get; set; }
+    long BaseHp { get; set; }
+    long BonusHp { get; set; }
 
-    int CurrentMp { get; set; }
-    int BaseMp { get; set; }
-    int BonusMp { get; set; }
+    long CurrentMp { get; set; }
+    long BaseMp { get; set; }
+    long BonusMp { get; set; }
 
     int _Regen { get; set; }
     int BonusRegen { get; set; }
@@ -87,19 +87,19 @@ public interface ISprite
     void NotifyPropertyChanged([CallerMemberName] string propertyName = "");
     TSprite CastSpriteToType<TSprite>() where TSprite : Sprite;
     void ShowTo(Aisling nearbyAisling);
-    List<Sprite> GetAllInFront(Sprite sprite, int tileCount = 1);
-    List<Sprite> GetAllInFront(int tileCount = 1, bool intersect = false);
-    List<Sprite> DamageableGetInFront(int tileCount = 1, bool intersect = false);
-    List<Position> GetTilesInFront(int tileCount = 1, bool intersect = false);
-    List<Sprite> DamageableGetAwayInFront(int tileCount = 2, bool intersect = false);
-    List<Sprite> DamageableGetBehind(int tileCount = 1, bool intersect = false);
-    List<Sprite> MonsterGetInFront(int tileCount = 1, bool intersect = false);
-    List<Sprite> MonsterGetInFrontToSide(int tileCount = 1, bool intersect = false);
-    List<Sprite> GetInFrontToSide(int tileCount = 1, bool intersect = false);
-    List<Sprite> GetHorizontalInFront(int tileCount = 1, bool intersect = false);
-    Position GetFromAllSidesEmpty(Sprite sprite, Sprite target, int tileCount = 1);
-    Position GetFromAllSidesEmpty(Sprite target, int tileCount = 1, bool intersect = false);
+    List<Sprite> GetAllInFront(int tileCount = 1);
+    List<Sprite> DamageableGetInFront(int tileCount = 1);
+    List<Position> GetTilesInFront(int tileCount = 1);
+    List<Sprite> DamageableGetAwayInFront(int tileCount = 2);
+    List<Sprite> DamageableGetBehind(int tileCount = 1);
+    List<Sprite> MonsterGetInFront(int tileCount = 1);
+    List<Sprite> MonsterGetInFrontToSide(int tileCount = 1);
+    List<Sprite> MonsterGetFiveByFourRectInFront();
+    List<Sprite> GetInFrontToSide(int tileCount = 1);
+    List<Sprite> GetHorizontalInFront(int tileCount = 1);
+    Position GetFromAllSidesEmpty(Sprite target, int tileCount = 1);
     Position GetPendingChargePosition(int warp, Sprite sprite);
+    Position GetPendingChargePositionNoTarget(int warp, Sprite sprite);
     Position GetPendingThrowPosition(int warp, Sprite sprite);
     bool GetPendingThrowIsWall(int warp, Sprite sprite);
     bool WithinRangeOf(Sprite other);
@@ -120,6 +120,7 @@ public interface ISprite
     bool Walk();
     bool WalkTo(int x, int y);
     void Wander();
+    void CheckTraps(Monster monster);
     void Turn();
 
     // Damage Begin -- Going to refactor damage out of sprite
@@ -128,7 +129,7 @@ public interface ISprite
     void ApplyDamage(Sprite damageDealingSprite, long dmg, Skill skill, bool forceTarget = false);
     void ApplyTrapDamage(Sprite damageDealingSprite, long dmg, byte sound);
     void MagicApplyDamage(Sprite damageDealingSprite, long dmg, Spell spell, bool forceTarget = false);
-    void ApplyEquipmentDurability(int dmg);
+    void ApplyEquipmentDurability(long dmg);
     long ApplyWeaponBonuses(Sprite source, long dmg);
     double CalculateElementalDamageMod(Sprite attacker, ElementManager.Element element);
     long CompleteDamageApplication(Sprite damageDealingSprite, long dmg, byte sound, double amplifier);

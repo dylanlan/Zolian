@@ -19,11 +19,6 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
 {
     public override Monster Create()
     {
-        if (template.CastSpeed <= 6000) template.CastSpeed = 6000;
-        if (template.AttackSpeed <= 500) template.AttackSpeed = 500;
-        if (template.MovementSpeed <= 500) template.MovementSpeed = 500;
-        if (template.Level <= 1) template.Level = 1;
-
         var obj = new Monster
         {
             Template = template,
@@ -38,12 +33,13 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
             CurrentMapId = map.ID
         };
 
-        LoadSkillScript("Assail", obj);
-        if (template.Level > 10)
+        if (template.MonsterRace != MonsterRace.Dummy)
+            LoadSkillScript("Assail", obj);
+        if (template.Level > 10 && template.MonsterRace != MonsterRace.Dummy)
             MonsterSkillSet(obj);
 
         // Initialize the dictionary with the maximum level as the key and the hpMultiplier and mpMultiplier as the value
-        var levelMultipliers = new SortedDictionary<int, (int hpMultiplier, int mpMultiplier)>
+        var levelMultipliers = new SortedDictionary<int, (long hpMultiplier, long mpMultiplier)>
         {
             { 9, (115, 80)},
             { 19, (150, 100)},
@@ -88,7 +84,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
             var currentMpMultiplier = 4000;
 
             // Generate multipliers for levels above 249
-            for (var level = 250; level <= 500; level += 5)
+            for (var level = 250; level <= 1000; level += 5)
             {
                 currentHpMultiplier = (int)(currentHpMultiplier * 1.05);
                 currentMpMultiplier = (int)(currentMpMultiplier * 1.05);
@@ -122,11 +118,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
         if (obj.Map.IsSpriteInLocationOnCreation(obj, (int)obj.Pos.X, (int)obj.Pos.Y)) return null;
 
         obj.AbandonedDate = DateTime.UtcNow;
-
-        obj.Image = template.ImageVarience > 0
-            ? (ushort)Random.Shared.Next(template.Image, template.Image + template.ImageVarience)
-            : template.Image;
-
+        obj.Image = template.Image;
         obj.CurrentHp = obj.MaximumHp;
         obj.CurrentMp = obj.MaximumMp;
 
@@ -217,6 +209,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
             [MonsterRace.Contruct] = ContructSet,
             [MonsterRace.Demon] = DemonSet,
             [MonsterRace.Dragon] = DragonSet,
+            [MonsterRace.Bahamut] = BahamutDragonSet,
             [MonsterRace.Elemental] = ElementalSet,
             [MonsterRace.Fairy] = FairySet,
             [MonsterRace.Fiend] = FiendSet,
@@ -226,6 +219,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
             [MonsterRace.Goblin] = GoblinSet,
             [MonsterRace.Grimlok] = GrimlokSet,
             [MonsterRace.Humanoid] = HumanoidSet,
+            [MonsterRace.ShapeShifter] = ShapeShifter,
             [MonsterRace.Insect] = InsectSet,
             [MonsterRace.Kobold] = KoboldSet,
             [MonsterRace.Magical] = MagicalSet,
@@ -238,7 +232,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
             [MonsterRace.Shadow] = ShadowSet,
             [MonsterRace.Rodent] = RodentSet,
             [MonsterRace.Undead] = UndeadSet,
-            // Dummy, Inanimate, LowerBeing, HigherBeing have no set action, so they are omitted here
+            // Dummy, LowerBeing, HigherBeing have no set action, so they are omitted here
         };
 
         if (monsterRaceActions.TryGetValue(template.MonsterRace, out var raceAction))
@@ -247,14 +241,21 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
         }
 
         // Load Random Generated Abilities to Monster
-        Assails(obj);
-        BasicAbilities(obj);
-        BeagSpells(obj);
-        NormalSpells(obj);
-        MorSpells(obj);
-        ArdSpells(obj);
-        MasterSpells(obj);
-        JobSpells(obj);
+        if (!obj.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.ShapeShifter))
+        {
+            Assails(obj);
+
+            if (!obj.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Bahamut))
+            {
+                BasicAbilities(obj);
+                BeagSpells(obj);
+                NormalSpells(obj);
+                MorSpells(obj);
+                ArdSpells(obj);
+                MasterSpells(obj);
+                JobSpells(obj);
+            }
+        }
 
         // Load Abilities from Template to Monster
         if (template.SkillScripts != null)
@@ -449,7 +450,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
         };
 
         const int startLevel = 200;
-        const int endLevel = 500;
+        const int endLevel = 1000;
         // ToDo: Increment this in the future if higher levels need more experience
         var stepSize = 5;
 
@@ -550,9 +551,24 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
             { 500, (294, 3523) }
         };
 
-        var (start, end) = levelExperienceRange.First(x => obj.Template.Level <= x.Key).Value;
+        const int startLevel = 500;
+        const int endLevel = 1000;
+        // ToDo: Increment this in the future if higher levels need more experience
+        var stepSize = 5;
 
-        obj.Ability = (uint)Generator.GenerateDeterminedNumberRange(start, end);
+        for (var level = startLevel + stepSize; level <= endLevel; level += stepSize)
+        {
+            // Retrieve the last entry's value
+            var lastEntry = levelExperienceRange[level - stepSize];
+            var newEntry = IncrementByFivePercent(lastEntry);
+            levelExperienceRange.Add(level, newEntry);
+        }
+
+        var (start, end) = levelExperienceRange.First(x => obj.Template.Level <= x.Key).Value;
+        var minXp = (int)(start * 0.9);
+        var maxXp = (int)(end * 1.1);
+
+        obj.Ability = (uint)Generator.GenerateDeterminedNumberRange(minXp, maxXp);
     }
 
     private static void MonsterElementalAlignment(Sprite obj)
@@ -693,7 +709,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
                 monster._Con += statGen3;
                 monster._Str += statGen2;
                 monster._Dex -= statGen1;
-                monster.BonusHp += (int)(monster.MaximumHp * 0.012);
+                monster.BonusHp += (long)(monster.MaximumHp * 0.012);
                 monster.Experience += (uint)(monster.Experience * 0.02);
                 monster.Ability += (uint)(monster.Ability * 0.02);
             },
@@ -702,7 +718,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
                 monster._Con += statGen3;
                 monster._Str += statGen3;
                 monster._Dex -= statGen2;
-                monster.BonusHp += (int)(monster.MaximumHp * 0.024);
+                monster.BonusHp += (long)(monster.MaximumHp * 0.024);
                 monster.Experience += (uint)(monster.Experience * 0.06);
                 monster.Ability += (uint)(monster.Ability * 0.06);
             },
@@ -711,7 +727,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
                 monster._Con += statGen3;
                 monster._Str += statGen3;
                 monster._Dex += statGen3;
-                monster.BonusHp += (int)(monster.MaximumHp * 0.036);
+                monster.BonusHp += (long)(monster.MaximumHp * 0.036);
                 monster.Experience += (uint)(monster.Experience * 0.10);
                 monster.Ability += (uint)(monster.Ability * 0.10);
             },
@@ -720,7 +736,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
                 monster._Con += statGen4;
                 monster._Str += statGen4;
                 monster._Dex += statGen4;
-                monster.BonusHp += (int)(monster.MaximumHp * 0.048);
+                monster.BonusHp += (long)(monster.MaximumHp * 0.048);
                 monster.Experience += (uint)(monster.Experience * 0.15);
                 monster.Ability += (uint)(monster.Ability * 0.15);
             },
@@ -840,12 +856,12 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
             [PrimaryStat.WIS] = monster =>
             {
                 monster.BonusWis += (int)(monster._Wis * 1.2);
-                monster.BonusMp += (int)(monster.BaseMp * 1.2);
+                monster.BonusMp += (long)(monster.BaseMp * 1.2);
             },
             [PrimaryStat.CON] = monster =>
             {
                 monster.BonusCon += (int)(monster._Con * 1.2);
-                monster.BonusHp += (int)(monster.BaseHp * 1.2);
+                monster.BonusHp += (long)(monster.BaseHp * 1.2);
             },
             [PrimaryStat.DEX] = monster =>
             {
@@ -871,7 +887,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
                 monster.BonusStr += (int)(monster._Str * 1.2);
                 monster.BonusDex += (int)(monster._Dex * 1.2);
                 monster.BonusDmg += (int)(monster._Dmg * 1.2);
-                monster.BonusHp += (int)(monster.MaximumHp * 0.012);
+                monster.BonusHp += (long)(monster.MaximumHp * 0.012);
             },
             [MonsterType.Magical] = monster =>
             {
@@ -912,7 +928,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
                 monster.BonusStr += monster._Str * 5;
                 monster.BonusDex += monster._Dex * 5;
                 monster.BonusDmg += monster._Dmg * 5;
-                monster.BonusHp += (int)(monster.MaximumHp * 0.03);
+                monster.BonusHp += (long)(monster.MaximumHp * 0.03);
             },
             [MonsterType.Above99M] = monster =>
             {
@@ -925,7 +941,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
                 monster.BonusStr += monster._Str * 7;
                 monster.BonusDex += monster._Dex * 7;
                 monster.BonusDmg += monster._Dmg * 7;
-                monster.BonusHp += (int)(monster.MaximumHp * 0.05);
+                monster.BonusHp += (long)(monster.MaximumHp * 0.05);
             },
             [MonsterType.Above150M] = monster =>
             {
@@ -938,7 +954,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
                 monster.BonusStr += monster._Str * 9;
                 monster.BonusDex += monster._Dex * 9;
                 monster.BonusDmg += monster._Dmg * 9;
-                monster.BonusHp += (int)(monster.MaximumHp * 0.07);
+                monster.BonusHp += (long)(monster.MaximumHp * 0.07);
             },
             [MonsterType.Above200M] = monster =>
             {
@@ -951,7 +967,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
                 monster.BonusStr += monster._Str * 10;
                 monster.BonusDex += monster._Dex * 10;
                 monster.BonusDmg += monster._Dmg * 10;
-                monster.BonusHp += (int)(monster.MaximumHp * 0.08);
+                monster.BonusHp += (long)(monster.MaximumHp * 0.08);
             },
             [MonsterType.Above250M] = monster =>
             {
@@ -1005,7 +1021,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
                 monster.BonusStr += monster._Str * 13;
                 monster.BonusDex += monster._Dex * 13;
                 monster.BonusDmg += monster._Dmg * 13;
-                monster.BonusHp += (int)(monster.MaximumHp * 0.11);
+                monster.BonusHp += (long)(monster.MaximumHp * 0.11);
             },
             [MonsterType.Above300M] = monster =>
             {
@@ -1018,7 +1034,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
                 monster.BonusStr += monster._Str * 14;
                 monster.BonusDex += monster._Dex * 14;
                 monster.BonusDmg += monster._Dmg * 14;
-                monster.BonusHp += (int)(monster.MaximumHp * 0.13);
+                monster.BonusHp += (long)(monster.MaximumHp * 0.13);
             },
             [MonsterType.Above350M] = monster =>
             {
@@ -1031,7 +1047,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
                 monster.BonusStr += monster._Str * 16;
                 monster.BonusDex += monster._Dex * 16;
                 monster.BonusDmg += monster._Dmg * 16;
-                monster.BonusHp += (int)(monster.MaximumHp * 0.15);
+                monster.BonusHp += (long)(monster.MaximumHp * 0.15);
             },
             [MonsterType.Above400M] = monster =>
             {
@@ -1046,7 +1062,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
                 monster.BonusDex += monster._Dex * 19;
                 monster.BonusDmg += monster._Dmg * 19;
                 monster.BonusHp += monster.BaseHp * 10;
-                monster.BonusHp += (int)(monster.MaximumHp * 0.17);
+                monster.BonusHp += (long)(monster.MaximumHp * 0.17);
             },
             [MonsterType.Above450M] = monster =>
             {
@@ -1198,15 +1214,12 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
     {
         var skillList = monster.Template.Level switch
         {
-            <= 11 => new List<string>
-            {
-                "Onslaught", "Assault", "Clobber", "Bite", "Claw"
-            },
-            > 11 and <= 50 => new List<string>
-            {
+            <= 11 => ["Onslaught", "Assault", "Clobber", "Bite", "Claw"],
+            > 11 and <= 50 =>
+            [
                 "Double Punch", "Punch", "Clobber x2", "Onslaught", "Thrust",
                 "Wallop", "Assault", "Clobber", "Bite", "Claw", "Stomp", "Tail Slap"
-            },
+            ],
             _ => new List<string>
             {
                 "Double Punch", "Punch", "Thrash", "Clobber x2", "Onslaught",
@@ -1221,7 +1234,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
 
         for (var i = 0; i < skillCount; i++)
         {
-            if (!randomIndices.Any()) // All skills have been assigned
+            if (randomIndices.Count == 0) // All abilities have been assigned
             {
                 break;
             }
@@ -1247,30 +1260,39 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
 
         var skillList = monster.Template.Level switch
         {
-            <= 25 => new List<string>
-            {
-                "Stab", "Dual Slice", "Wind Slice", "Wind Blade",
-            },
-            > 25 and <= 60 => new List<string>
-            {
-                "Claw Fist", "Cross Body Punch", "Knife Hand Strike", "Krane Kick", "Palm Heel Strike", "Wolf Fang Fist", "Stab", "Stab'n Twist", "Stab Twice",
-                "Desolate", "Dual Slice", "Rush", "Wind Slice", "Beag Suain", "Wind Blade", "Double-Edged Dance", "Bite'n Shake", "Howl'n Call", "Death From Above",
+            <= 25 =>
+            [
+                "Stab", "Dual Slice", "Wind Slice", "Wind Blade"
+            ],
+            > 25 and <= 60 =>
+            [
+                "Claw Fist", "Cross Body Punch", "Knife Hand Strike", "Krane Kick", "Palm Heel Strike",
+                "Wolf Fang Fist", "Stab", "Stab'n Twist", "Stab Twice",
+                "Desolate", "Dual Slice", "Rush", "Wind Slice", "Beag Suain", "Wind Blade", "Double-Edged Dance",
+                "Bite'n Shake", "Howl'n Call", "Death From Above",
                 "Pounce", "Roll Over", "Corrosive Touch"
-            },
-            > 60 and <= 75 => new List<string>
-            {
-                "Ambush", "Claw Fist", "Cross Body Punch", "Hammer Twist", "Hurricane Kick", "Knife Hand Strike", "Krane Kick", "Palm Heel Strike", "Wolf Fang Fist",
-                "Stab", "Stab'n Twist", "Stab Twice", "Desolate", "Dual Slice", "Lullaby Strike", "Rush", "Sever", "Wind Slice", "Beag Suain", "Charge",
-                "Vampiric Slash", "Wind Blade", "Double-Edged Dance", "Ebb'n Flow", "Bite'n Shake", "Howl'n Call", "Death From Above", "Pounce", "Roll Over",
+            ],
+            > 60 and <= 75 =>
+            [
+                "Ambush", "Claw Fist", "Cross Body Punch", "Hammer Twist", "Hurricane Kick", "Knife Hand Strike",
+                "Krane Kick", "Palm Heel Strike", "Wolf Fang Fist",
+                "Stab", "Stab'n Twist", "Stab Twice", "Desolate", "Dual Slice", "Lullaby Strike", "Rush", "Sever",
+                "Wind Slice", "Beag Suain", "Charge",
+                "Vampiric Slash", "Wind Blade", "Double-Edged Dance", "Ebb'n Flow", "Bite'n Shake", "Howl'n Call",
+                "Death From Above", "Pounce", "Roll Over",
                 "Swallow Whole", "Tentacle", "Corrosive Touch"
-            },
-            > 75 and <= 120 => new List<string>
-            {
-                "Ambush", "Claw Fist", "Cross Body Punch", "Hammer Twist", "Hurricane Kick", "Knife Hand Strike", "Krane Kick", "Palm Heel Strike",
-                "Wolf Fang Fist", "Flurry", "Stab", "Stab'n Twist", "Stab Twice", "Titan's Cleave", "Desolate", "Dual Slice", "Lullaby Strike", "Rush",
-                "Sever", "Wind Slice", "Beag Suain", "Charge", "Vampiric Slash", "Wind Blade", "Double-Edged Dance", "Ebb'n Flow", "Retribution", "Flame Thrower",
-                "Bite'n Shake", "Howl'n Call", "Death From Above", "Pounce", "Roll Over", "Swallow Whole", "Tentacle", "Corrosive Touch", "Tantalizing Gaze"
-            },
+            ],
+            > 75 and <= 120 =>
+            [
+                "Ambush", "Claw Fist", "Cross Body Punch", "Hammer Twist", "Hurricane Kick", "Knife Hand Strike",
+                "Krane Kick", "Palm Heel Strike",
+                "Wolf Fang Fist", "Flurry", "Stab", "Stab'n Twist", "Stab Twice", "Titan's Cleave", "Desolate",
+                "Dual Slice", "Lullaby Strike", "Rush",
+                "Sever", "Wind Slice", "Beag Suain", "Charge", "Vampiric Slash", "Wind Blade", "Double-Edged Dance",
+                "Ebb'n Flow", "Retribution", "Flame Thrower",
+                "Bite'n Shake", "Howl'n Call", "Death From Above", "Pounce", "Roll Over", "Swallow Whole", "Tentacle",
+                "Corrosive Touch", "Tantalizing Gaze"
+            ],
             _ => new List<string>
             {
                 "Ambush", "Claw Fist", "Cross Body Punch", "Hammer Twist", "Hurricane Kick", "Knife Hand Strike", "Krane Kick", "Palm Heel Strike",
@@ -1286,7 +1308,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
 
         for (var i = 0; i < skillCount; i++)
         {
-            if (!randomIndices.Any()) // All abilities have been assigned
+            if (randomIndices.Count == 0) // All abilities have been assigned
             {
                 break;
             }
@@ -1325,7 +1347,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
 
         for (var i = 0; i < spellCount; i++)
         {
-            if (!randomIndices.Any()) // All spells have been assigned
+            if (randomIndices.Count == 0) // All abilities have been assigned
             {
                 break;
             }
@@ -1364,7 +1386,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
 
         for (var i = 0; i < spellCount; i++)
         {
-            if (!randomIndices.Any()) // All spells have been assigned
+            if (randomIndices.Count == 0) // All abilities have been assigned
             {
                 break;
             }
@@ -1403,7 +1425,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
 
         for (var i = 0; i < spellCount; i++)
         {
-            if (!randomIndices.Any()) // All spells have been assigned
+            if (randomIndices.Count == 0) // All abilities have been assigned
             {
                 break;
             }
@@ -1442,7 +1464,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
 
         for (var i = 0; i < spellCount; i++)
         {
-            if (!randomIndices.Any()) // All spells have been assigned
+            if (randomIndices.Count == 0) // All abilities have been assigned
             {
                 break;
             }
@@ -1481,7 +1503,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
 
         for (var i = 0; i < spellCount; i++)
         {
-            if (!randomIndices.Any()) // All spells have been assigned
+            if (randomIndices.Count == 0) // All abilities have been assigned
             {
                 break;
             }
@@ -1515,7 +1537,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
 
         for (var i = 0; i < spellCount; i++)
         {
-            if (!randomIndices.Any()) // All spells have been assigned
+            if (randomIndices.Count == 0) // All abilities have been assigned
             {
                 break;
             }
@@ -1554,7 +1576,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
         if (!monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Aquatic)) return;
         var skillList = new List<string> { "Bite", "Tail Slap" };
         var abilityList = new List<string> { "Bubble Burst", "Swallow Whole" };
-        MonsterLoader(skillList, abilityList, new List<string>(), monster);
+        MonsterLoader(skillList, abilityList, [], monster);
     }
 
     private void BeastSet(Monster monster)
@@ -1602,12 +1624,21 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
         MonsterLoader(skillList, abilityList, spellList, monster);
     }
 
+    private void BahamutDragonSet(Monster monster)
+    {
+        if (!monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Bahamut)) return;
+        var skillList = new List<string> { "Fire Wheel", "Thrash", "Ambidextrous", "Slash", "Claw" };
+        var abilityList = new List<string> { "Megaflare", "Lava Armor", "Ember Strike", "Silent Siren" };
+        var spellList = new List<string> { "Heavens Fall", "Liquid Hell", "Ao Sith Gar" };
+        MonsterLoader(skillList, abilityList, spellList, monster);
+    }
+
     private void ElementalSet(Monster monster)
     {
         if (!monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Elemental)) return;
         var skillList = new List<string> { "Onslaught", "Assault" };
         var abilityList = new List<string> { "Atlantean Weapon", "Elemental Bane" };
-        MonsterLoader(skillList, abilityList, new List<string>(), monster);
+        MonsterLoader(skillList, abilityList, [], monster);
     }
 
     private void FairySet(Monster monster)
@@ -1633,7 +1664,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
         if (!monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Fungi)) return;
         var skillList = new List<string> { "Wallop", "Clobber" };
         var abilityList = new List<string> { "Dual Slice", "Wind Blade", "Vampiric Slash" };
-        MonsterLoader(skillList, abilityList, new List<string>(), monster);
+        MonsterLoader(skillList, abilityList, [], monster);
     }
 
     private void GargoyleSet(Monster monster)
@@ -1677,7 +1708,15 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
         if (!monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Humanoid)) return;
         var skillList = new List<string> { "Thrust", "Thrash", "Wallop" };
         var abilityList = new List<string> { "Camouflage", "Adrenaline" };
-        MonsterLoader(skillList, abilityList, new List<string>(), monster);
+        MonsterLoader(skillList, abilityList, [], monster);
+    }
+
+    private void ShapeShifter(Monster monster)
+    {
+        if (!monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.ShapeShifter)) return;
+        var skillList = new List<string> { "Thrust", "Thrash", "Wallop" };
+        var spellList = new List<string> { "Spring Trap", "Snare Trap", "Blind", "Prahm" };
+        MonsterLoader(skillList, [], spellList, monster);
     }
 
     private void InsectSet(Monster monster)
@@ -1685,7 +1724,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
         if (!monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Insect)) return;
         var skillList = new List<string> { "Bite" };
         var abilityList = new List<string> { "Corrosive Touch" };
-        MonsterLoader(skillList, abilityList, new List<string>(), monster);
+        MonsterLoader(skillList, abilityList, [], monster);
     }
 
     private void KoboldSet(Monster monster)
@@ -1701,7 +1740,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
     {
         if (!monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Magical)) return;
         var spellList = new List<string> { "Aite", "Mor Fas Nadur", "Deireas Faileas" };
-        MonsterLoader(new List<string>(), new List<string>(), spellList, monster);
+        MonsterLoader([], [], spellList, monster);
     }
 
     private void MukulSet(Monster monster)
@@ -1745,14 +1784,14 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
         if (!monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Reptile)) return;
         var skillList = new List<string> { "Tail Slap", "Head Butt" };
         var abilityList = new List<string> { "Pounce", "Death From Above" };
-        MonsterLoader(skillList, abilityList, new List<string>(), monster);
+        MonsterLoader(skillList, abilityList, [], monster);
     }
 
     private void RoboticSet(Monster monster)
     {
         if (!monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Robotic)) return;
         var spellList = new List<string> { "Mor Dion", "Perfect Defense" };
-        MonsterLoader(new List<string>(), new List<string>(), spellList, monster);
+        MonsterLoader([], [], spellList, monster);
     }
 
     private void ShadowSet(Monster monster)
@@ -1760,7 +1799,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
         if (!monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Shadow)) return;
         var skillList = new List<string> { "Thrust" };
         var abilityList = new List<string> { "Lullaby Strike", "Vampiric Slash" };
-        MonsterLoader(skillList, abilityList, new List<string>(), monster);
+        MonsterLoader(skillList, abilityList, [], monster);
     }
 
     private void RodentSet(Monster monster)
@@ -1768,7 +1807,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
         if (!monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Rodent)) return;
         var skillList = new List<string> { "Bite", "Assault" };
         var abilityList = new List<string> { "Rush" };
-        MonsterLoader(skillList, abilityList, new List<string>(), monster);
+        MonsterLoader(skillList, abilityList, [], monster);
     }
 
     private void UndeadSet(Monster monster)
@@ -1776,7 +1815,7 @@ public class CreateMonster(MonsterTemplate template, Area map) : MonsterCreateSc
         if (!monster.Template.MonsterRace.MonsterRaceIsSet(MonsterRace.Undead)) return;
         var skillList = new List<string> { "Wallop" };
         var abilityList = new List<string> { "Corrosive Touch", "Retribution" };
-        MonsterLoader(skillList, abilityList, new List<string>(), monster);
+        MonsterLoader(skillList, abilityList, [], monster);
     }
 
     private void MonsterLoader(List<string> skills, List<string> abilities, List<string> spells, Monster monster)

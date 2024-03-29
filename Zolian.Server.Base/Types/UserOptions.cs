@@ -61,7 +61,7 @@ public sealed class UserOptions
         {
             UserOption.Request => ToString(),
             UserOption.Setting1 => string.Format(optionsFormat, "1Listen to whisper", Whisper ? "ON" : "OFF"),
-            UserOption.Setting2 => string.Format(optionsFormat, "2Group Chat", GroupChat ? "ON" : "OFF"),
+            UserOption.Setting2 => string.Format(optionsFormat, "2World Chat", GroupChat ? "ON" : "OFF"),
             UserOption.Setting3 => string.Format(optionsFormat, "3Can GM Port", GMPort ? "ON" : "OFF"),
             UserOption.Setting4 => string.Format(optionsFormat, "4Belief in Magic", Animations ? "ON" : "OFF"),
             UserOption.Setting5 => string.Format(optionsFormat, "5Damage Numbers", DmgNumbers ? "ON" : "OFF"),
@@ -72,7 +72,15 @@ public sealed class UserOptions
             UserOption.Setting10 => string.Format(optionsFormat, "10", UseAbilitiesType ? "ON" : "OFF"),
             UserOption.Setting11 => string.Format(optionsFormat, "11", ClickOpenProfile ? "ON" : "OFF"),
             UserOption.Setting12 => string.Format(optionsFormat, "12", NpcChatListen ? "ON" : "OFF"),
-            UserOption.Setting13 => string.Format(optionsFormat, "13", PartyRequest ? "ON" : "OFF")
+            UserOption.Setting13 => string.Format(optionsFormat, "13", PartyRequest ? "ON" : "OFF"),
+            UserOption.Setting14 => "",
+            UserOption.Setting15 => "",
+            UserOption.Setting16 => "",
+            UserOption.Setting17 => "",
+            UserOption.Setting18 => "",
+            UserOption.Setting19 => "",
+            UserOption.Setting20 => "",
+            _ => ""
         };
     }
 

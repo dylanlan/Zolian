@@ -122,18 +122,12 @@ public class Callum(WorldServer server, Mundane mundane) : MundaneScript(server,
                                             _itemDetail.ItemQuality = Item.Quality.Common;
                                             break;
                                         case Item.Quality.Common:
-                                            _itemDetail.ItemQuality = Item.Quality.Common;
-                                            break;
                                         case Item.Quality.Uncommon:
-                                            _itemDetail.OriginalQuality = Item.Quality.Common;
-                                            _itemDetail.ItemQuality = Item.Quality.Common;
-                                            break;
                                         case Item.Quality.Rare:
-                                            _itemDetail.OriginalQuality = Item.Quality.Uncommon;
-                                            _itemDetail.ItemQuality = Item.Quality.Common;
-                                            break;
                                         case Item.Quality.Epic:
-                                            _itemDetail.OriginalQuality = Item.Quality.Rare;
+                                        case Item.Quality.Legendary:
+                                        case Item.Quality.Forsaken:
+                                        case Item.Quality.Mythic:
                                             _itemDetail.ItemQuality = Item.Quality.Common;
                                             break;
                                         default:
@@ -151,14 +145,11 @@ public class Callum(WorldServer server, Mundane mundane) : MundaneScript(server,
                                             _itemDetail.ItemQuality = Item.Quality.Uncommon;
                                             break;
                                         case Item.Quality.Uncommon:
-                                            _itemDetail.ItemQuality = Item.Quality.Uncommon;
-                                            break;
                                         case Item.Quality.Rare:
-                                            _itemDetail.OriginalQuality = Item.Quality.Uncommon;
-                                            _itemDetail.ItemQuality = Item.Quality.Uncommon;
-                                            break;
                                         case Item.Quality.Epic:
-                                            _itemDetail.OriginalQuality = Item.Quality.Rare;
+                                        case Item.Quality.Legendary:
+                                        case Item.Quality.Forsaken:
+                                        case Item.Quality.Mythic:
                                             _itemDetail.ItemQuality = Item.Quality.Uncommon;
                                             break;
                                         default:

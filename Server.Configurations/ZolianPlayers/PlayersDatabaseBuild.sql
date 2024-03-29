@@ -100,10 +100,6 @@ CREATE TABLE Players
 	[X] TINYINT NOT NULL DEFAULT 0,
 	[Y] TINYINT NOT NULL DEFAULT 0,
 	[CurrentMapId] INT NOT NULL DEFAULT 3029,
-	[OffenseElement] VARCHAR(15) NOT NULL DEFAULT 'None',
-	[DefenseElement] VARCHAR(15) NOT NULL DEFAULT 'None',
-	[SecondaryOffensiveElement] VARCHAR(15) NOT NULL DEFAULT 'None',
-	[SecondaryDefensiveElement] VARCHAR(15) NOT NULL DEFAULT 'None',
 	[Direction] TINYINT NOT NULL DEFAULT 0,
 	[CurrentHp] INT NOT NULL DEFAULT 0,
 	[BaseHp] INT NOT NULL DEFAULT 0,
@@ -131,7 +127,7 @@ CREATE TABLE Players
 	[Path] VARCHAR(10) NOT NULL DEFAULT 'Peasant',
 	[PastClass] VARCHAR(10) NOT NULL DEFAULT 'Peasant',
 	[Race] VARCHAR(10) NOT NULL DEFAULT 'Human',
-	[Afflictions] VARCHAR(10) NOT NULL DEFAULT 'Normal',
+	[Afflictions] VARCHAR(120) NOT NULL DEFAULT 'Normal',
 	[Gender] VARCHAR(6) NOT NULL DEFAULT 'Both',
 	[HairColor] TINYINT NOT NULL DEFAULT 0,
 	[HairStyle] TINYINT NOT NULL DEFAULT 0,
@@ -141,7 +137,6 @@ CREATE TABLE Players
 	[Clan] VARCHAR(20) NULL,
 	[ClanRank] VARCHAR(20) NULL,
 	[ClanTitle] VARCHAR(20) NULL,
-	[AnimalForm] VARCHAR(10) NOT NULL DEFAULT 'None',
 	[MonsterForm] SMALLINT NOT NULL DEFAULT 0,
 	[ActiveStatus] VARCHAR(15) NOT NULL DEFAULT 'Awake',
 	[Flags] VARCHAR(6) NOT NULL DEFAULT 'Normal',
@@ -163,14 +158,11 @@ CREATE TABLE Players
 	[RaceSpell] VARCHAR(20) NULL,
 	[GameMaster] BIT NOT NULL DEFAULT 0,
 	[ArenaHost] BIT NOT NULL DEFAULT 0,
-	[Developer] BIT NOT NULL DEFAULT 0,
-	[Ranger] BIT NOT NULL DEFAULT 0,
 	[Knight] BIT NOT NULL DEFAULT 0,
 	[GoldPoints] BIGINT NOT NULL DEFAULT 0,
 	[StatPoints] SMALLINT NOT NULL DEFAULT 0,
 	[GamePoints] BIGINT NOT NULL DEFAULT 0,
 	[BankedGold] BIGINT NOT NULL DEFAULT 0,
-	[Display] VARCHAR(12) NOT NULL DEFAULT 'None',
 	[ArmorImg] SMALLINT NOT NULL DEFAULT 0,
 	[HelmetImg] SMALLINT NOT NULL DEFAULT 0,
 	[ShieldImg] SMALLINT NOT NULL DEFAULT 0,
@@ -189,21 +181,7 @@ CREATE TABLE Players
     [OverCoatImg] SMALLINT NOT NULL DEFAULT 0,
 	[BootColor] TINYINT NOT NULL DEFAULT 0,
 	[OverCoatColor] TINYINT NOT NULL DEFAULT 0,
-	[Pants] TINYINT NOT NULL DEFAULT 0,
-	[Aegis] TINYINT NOT NULL DEFAULT 0,
-	[Bleeding] TINYINT NOT NULL DEFAULT 0,
-	[Spikes] TINYINT NOT NULL DEFAULT 0,
-	[Rending] TINYINT NOT NULL DEFAULT 0,
-	[Reaping] TINYINT NOT NULL DEFAULT 0,
-	[Vampirism] TINYINT NOT NULL DEFAULT 0,
-	[Haste] TINYINT NOT NULL DEFAULT 0,
-	[Hastened] TINYINT NOT NULL DEFAULT 0,
-	[Gust] TINYINT NOT NULL DEFAULT 0,
-	[Quake] TINYINT NOT NULL DEFAULT 0,
-	[Rain] TINYINT NOT NULL DEFAULT 0,
-	[Flame] TINYINT NOT NULL DEFAULT 0,
-	[Dusk] TINYINT NOT NULL DEFAULT 0,
-	[Dawn] TINYINT NOT NULL DEFAULT 0
+	[Pants] TINYINT NOT NULL DEFAULT 0
 )
 
 CREATE TABLE PlayersDiscoveredMaps
@@ -234,8 +212,8 @@ CREATE TABLE PlayersSpellBook
 	[Level] INT NOT NULL DEFAULT 0,
 	[Slot] INT NULL,
 	[SpellName] VARCHAR(30) NULL,
-	[Casts] INT NOT NULL DEFAULT 0,
-	[CurrentCooldown] INT NULL
+	[CurrentCooldown] INT NULL,
+	[Casts] INT NOT NULL DEFAULT 0
 )
 
 CREATE TABLE PlayersSkillBook
@@ -244,19 +222,19 @@ CREATE TABLE PlayersSkillBook
 	[Level] INT NOT NULL DEFAULT 0,
 	[Slot] INT NULL,
 	[SkillName] VARCHAR(30) NULL,
-	[Uses] INT NOT NULL DEFAULT 0,
-	[CurrentCooldown] INT NULL
+	[CurrentCooldown] INT NULL,
+    [Uses] INT NOT NULL DEFAULT 0,
 )
 
 CREATE TABLE PlayersLegend
 (
 	[LegendId] INT NOT NULL PRIMARY KEY,
 	[Serial] BIGINT FOREIGN KEY REFERENCES Players(Serial),
-	[Category] VARCHAR(20) NOT NULL,
+    [Key] VARCHAR (25) NOT NULL,
 	[Time] DATETIME DEFAULT CURRENT_TIMESTAMP,
-	[Color] VARCHAR(25) NOT NULL DEFAULT 'Blue',
+	[Color] VARCHAR(30) NOT NULL DEFAULT 'White',
 	[Icon] INT NOT NULL DEFAULT 0,
-	[Value] VARCHAR(50) NOT NULL
+	[Text] VARCHAR(50) NOT NULL
 )
 
 CREATE TABLE PlayersItems
@@ -269,7 +247,7 @@ CREATE TABLE PlayersItems
     [InventorySlot] INT NOT NULL DEFAULT 0,
 	[Color] INT NOT NULL DEFAULT 0,
 	[Cursed] BIT NOT NULL DEFAULT 0,
-	[Durability] INT NOT NULL DEFAULT 0,
+	[Durability] BIGINT NOT NULL DEFAULT 0,
 	[Identified] BIT NOT NULL DEFAULT 0,
 	[ItemVariance] VARCHAR(15) NOT NULL DEFAULT 'None',
 	[WeapVariance] VARCHAR(15) NOT NULL DEFAULT 'None',
@@ -305,6 +283,7 @@ CREATE TABLE PlayersCombos
 CREATE TABLE PlayersQuests
 (
 	[Serial] BIGINT FOREIGN KEY REFERENCES Players(Serial),
+    [MailBoxNumber] int NOT NULL,
     [TutorialCompleted] BIT NULL,
     [BetaReset] BIT NULL,
     [ArtursGift] INT NULL,
@@ -312,10 +291,16 @@ CREATE TABLE PlayersQuests
     [ConnPotions] BIT NULL,
     [CryptTerror] BIT NULL,
     [CryptTerrorSlayed] BIT NULL,
+    [CryptTerrorContinued] BIT NULL,
+    [CryptTerrorContSlayed] BIT NULL,
+    [NightTerror] BIT NULL,
+    [NightTerrorSlayed] BIT NULL,
+    [DreamWalking] BIT NULL,
+    [DreamWalkingSlayed] BIT NULL,
     [Dar] INT NULL,
     [DarItem] VARCHAR (20) NULL,
+    [ReleasedTodesbaum] BIT NULL,
     [DrunkenHabit] BIT NULL,
-    [EternalLove] BIT NULL,
     [FionaDance] BIT NULL,
     [Keela] INT NULL,
     [KeelaCount] INT NULL,
@@ -357,7 +342,24 @@ CREATE TABLE PlayersQuests
     [BeltQuest] VARCHAR (6) NULL,
     [SavedChristmas] BIT NULL,
     [RescuedReindeer] BIT NULL,
-    [YetiKilled] BIT NULL
+    [YetiKilled] BIT NULL,
+    [UnknownStart] BIT NULL,
+    [PirateShipAccess] BIT NULL,
+    [ScubaSchematics] BIT NULL,
+    [ScubaMaterialsQuest] BIT NULL,
+    [ScubaGearCrafted] BIT NULL,
+    [EternalLove] BIT NULL,
+    [EternalLoveStarted] BIT NULL,
+    [UnhappyEnding] BIT NULL,
+    [HonoringTheFallen] BIT NULL,
+    [ReadTheFallenNotes] BIT NULL,
+    [GivenTarnishedBreastplate] BIT NULL,
+    [EternalBond] VARCHAR (13) NULL,
+    [ArmorCraftingCodex] BIT NULL,
+    [ArmorApothecaryAccepted] BIT NULL,
+    [ArmorCodexDeciphered] BIT NULL,
+    [ArmorCraftingCodexLearned] BIT NULL,
+    [ArmorCraftingAdvancedCodexLearned] BIT NULL
 )
 
 CREATE TABLE PlayersIgnoreList
@@ -376,10 +378,6 @@ CREATE TYPE dbo.PlayerType AS TABLE
 	[X] TINYINT,
 	[Y] TINYINT,
 	[CurrentMapId] INT,
-	[OffenseElement] VARCHAR(15),
-	[DefenseElement] VARCHAR(15),
-	[SecondaryOffensiveElement] VARCHAR(15),
-	[SecondaryDefensiveElement] VARCHAR(15),
 	[Direction] TINYINT,
 	[CurrentHp] INT,
 	[BaseHp] INT,
@@ -417,7 +415,6 @@ CREATE TYPE dbo.PlayerType AS TABLE
 	[Clan] VARCHAR(20),
 	[ClanRank] VARCHAR(20),
 	[ClanTitle] VARCHAR(20),
-	[AnimalForm] VARCHAR(10),
 	[MonsterForm] SMALLINT,
 	[ActiveStatus] VARCHAR(15),
 	[Flags] VARCHAR(6),
@@ -439,8 +436,6 @@ CREATE TYPE dbo.PlayerType AS TABLE
 	[RaceSpell] VARCHAR(20),
 	[GameMaster] BIT,
 	[ArenaHost] BIT,
-	[Developer] BIT,
-	[Ranger] BIT,
 	[Knight] BIT,
 	[GoldPoints] BIGINT,
 	[StatPoints] SMALLINT,
@@ -464,20 +459,7 @@ CREATE TYPE dbo.PlayerType AS TABLE
     [OverCoatImg] SMALLINT,
 	[BootColor] TINYINT,
 	[OverCoatColor] TINYINT,
-	[Pants] TINYINT,
-	[Aegis] TINYINT,
-	[Bleeding] TINYINT,
-	[Spikes] TINYINT,
-	[Rending] TINYINT,
-	[Reaping] TINYINT,
-	[Vampirism] TINYINT,
-	[Haste] TINYINT,
-	[Gust] TINYINT,
-	[Quake] TINYINT,
-	[Rain] TINYINT,
-	[Flame] TINYINT,
-	[Dusk] TINYINT,
-	[Dawn] TINYINT
+	[Pants] TINYINT
 );
 
 CREATE TYPE dbo.ComboType AS TABLE
@@ -503,6 +485,7 @@ CREATE TYPE dbo.ComboType AS TABLE
 CREATE TYPE dbo.QuestType AS TABLE
 (
     Serial BIGINT,
+	MailBoxNumber INT,
     TutorialCompleted BIT,
     BetaReset BIT,
     ArtursGift INT,
@@ -510,10 +493,16 @@ CREATE TYPE dbo.QuestType AS TABLE
     ConnPotions BIT,
     CryptTerror BIT,
     CryptTerrorSlayed BIT,
+	CryptTerrorContinued BIT,
+    CryptTerrorContSlayed BIT,
+	NightTerror BIT,
+    NightTerrorSlayed BIT,
+	DreamWalking BIT,
+    DreamWalkingSlayed BIT,
     Dar INT,
     DarItem VARCHAR (20),
+	ReleasedTodesbaum BIT,
     DrunkenHabit BIT,
-    EternalLove BIT,
     FionaDance BIT,
     Keela INT,
     KeelaCount INT,
@@ -554,9 +543,26 @@ CREATE TYPE dbo.QuestType AS TABLE
     AdventuresGuildReputation INT,
     BeltQuest VARCHAR (6),
     SavedChristmas BIT,
-    RescuedReindeer BIT,
-    YetiKilled BIT
-);
+	RescuedReindeer BIT,
+	YetiKilled BIT,
+	UnknownStart BIT,
+	PirateShipAccess BIT,
+	ScubaSchematics BIT,
+	ScubaMaterialsQuest BIT,
+	ScubaGearCrafted BIT,
+	EternalLove BIT,
+    EternalLoveStarted BIT,
+    UnhappyEnding BIT,
+    HonoringTheFallen BIT,
+    ReadTheFallenNotes BIT,
+    GivenTarnishedBreastplate BIT,
+	EternalBond VARCHAR (13),
+	ArmorCraftingCodex BIT,
+	ArmorApothecaryAccepted BIT,
+	ArmorCodexDeciphered BIT,
+	ArmorCraftingCodexLearned BIT,
+	ArmorCraftingAdvancedCodexLearned BIT
+	);
 
 CREATE TYPE dbo.ItemType AS TABLE  
 (  
@@ -758,44 +764,53 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 CREATE PROCEDURE [dbo].[InsertQuests]
-    @Serial BIGINT, @TutComplete BIT, @BetaReset BIT, @StoneSmith INT, @StoneSmithingTier VARCHAR (10), @MilethRep INT,
-	@ArtursGift INT, @CamilleGreeting BIT, @ConnPotions BIT, @CryptTerror BIT, @CryptTerrorSlayed BIT, @Dar INT,
-	@DarItem VARCHAR (20), @EternalLove BIT, @Fiona BIT, @Keela INT, @KeelaCount INT, @KeelaKill VARCHAR (20),
-	@KeelaQuesting BIT, @KillerBee BIT, @Neal INT, @NealCount INT, @NealKill VARCHAR (20), @AbelShopAccess BIT,
-	@PeteKill INT, @PeteComplete BIT, @SwampAccess BIT, @SwampCount INT, @TagorDungeonAccess BIT, @Lau INT,
+    @Serial BIGINT, @MailBoxNumber INT, @TutComplete BIT, @BetaReset BIT, @StoneSmith INT, @StoneSmithingTier VARCHAR (10), @MilethRep INT,
+	@ArtursGift INT, @CamilleGreeting BIT, @ConnPotions BIT, @CryptTerror BIT, @CryptTerrorSlayed BIT, @CryptTerrorContinued BIT, @CryptTerrorContSlayed BIT,
+	@NightTerror BIT, @NightTerrorSlayed BIT, @DreamWalking BIT, @DreamWalkingSlayed BIT, @Dar INT, @DarItem VARCHAR (20), @ReleasedTodesbaum BIT, @DrunkenHabit BIT,
+	@Fiona BIT, @Keela INT, @KeelaCount INT, @KeelaKill VARCHAR (20), @KeelaQuesting BIT, @KillerBee BIT, @Neal INT, @NealCount INT,
+	@NealKill VARCHAR (20), @AbelShopAccess BIT, @PeteKill INT, @PeteComplete BIT, @SwampAccess BIT, @SwampCount INT, @TagorDungeonAccess BIT, @Lau INT,
     @AbelReputation INT, @RucesionReputation INT, @SuomiReputation INT, @RionnagReputation INT,
     @OrenReputation INT, @PietReputation INT, @LouresReputation INT, @UndineReputation INT,
     @TagorReputation INT, @ThievesGuildReputation INT, @AssassinsGuildReputation INT, @AdventuresGuildReputation INT,
     @BlackSmithing INT, @BlackSmithingTier VARCHAR (10), @ArmorSmithing INT, @ArmorSmithingTier VARCHAR (10),
 	@JewelCrafting INT, @JewelCraftingTier VARCHAR (10), @BeltDegree VARCHAR (6), @BeltQuest VARCHAR (6),
-    @SavedChristmas BIT, @RescuedReindeer BIT, @YetiKilled BIT
+    @SavedChristmas BIT, @RescuedReindeer BIT, @YetiKilled BIT, @UnknownStart BIT, @PirateShipAccess BIT,
+	@ScubaSchematics BIT, @ScubaMaterialsQuest BIT, @ScubaGearCrafted BIT, @EternalLove BIT, @EternalLoveStarted BIT, @UnhappyEnding BIT,
+	@HonoringTheFallen BIT, @ReadTheFallenNotes BIT, @GivenTarnishedBreastplate BIT, @EternalBond VARCHAR (13), @ArmorCraftingCodex BIT,
+	@ArmorApothecaryAccepted BIT, @ArmorCodexDeciphered BIT, @ArmorCraftingCodexLearned BIT, @ArmorCraftingAdvancedCodexLearned BIT
 AS
 BEGIN
     SET NOCOUNT ON;
     
     INSERT INTO [ZolianPlayers].[dbo].[PlayersQuests] (
-        [Serial], [TutorialCompleted], [BetaReset], [StoneSmithing], [StoneSmithingTier], [MilethReputation],
-		[ArtursGift], [CamilleGreetingComplete], [ConnPotions], [CryptTerror], [CryptTerrorSlayed], [Dar], [DarItem],
-        [EternalLove], [FionaDance], [Keela], [KeelaCount], [KeelaKill], [KeelaQuesting],
-        [KillerBee], [Neal], [NealCount], [NealKill], [AbelShopAccess], [PeteKill],
-        [PeteComplete], [SwampAccess], [SwampCount], [TagorDungeonAccess], [Lau],
+        [Serial], [MailBoxNumber], [TutorialCompleted], [BetaReset], [StoneSmithing], [StoneSmithingTier], [MilethReputation],
+		[ArtursGift], [CamilleGreetingComplete], [ConnPotions], [CryptTerror], [CryptTerrorSlayed], [CryptTerrorContinued], [CryptTerrorContSlayed],
+		[NightTerror], [NightTerrorSlayed], [DreamWalking], [DreamWalkingSlayed], [Dar], [DarItem], [ReleasedTodesbaum], [DrunkenHabit],
+		[FionaDance], [Keela], [KeelaCount], [KeelaKill], [KeelaQuesting], [KillerBee], [Neal], [NealCount],
+		[NealKill], [AbelShopAccess], [PeteKill], [PeteComplete], [SwampAccess], [SwampCount], [TagorDungeonAccess], [Lau],
         [AbelReputation], [RucesionReputation], [SuomiReputation], [RionnagReputation],
         [OrenReputation], [PietReputation], [LouresReputation], [UndineReputation],
         [TagorReputation], [ThievesGuildReputation], [AssassinsGuildReputation], [AdventuresGuildReputation],
         [BlackSmithing], [BlackSmithingTier], [ArmorSmithing], [ArmorSmithingTier], [JewelCrafting], [JewelCraftingTier],
-		[BeltDegree], [BeltQuest], [SavedChristmas], [RescuedReindeer], [YetiKilled]
+		[BeltDegree], [BeltQuest], [SavedChristmas], [RescuedReindeer], [YetiKilled], [UnknownStart], [PirateShipAccess],
+		[ScubaSchematics], [ScubaMaterialsQuest], [ScubaGearCrafted], [EternalLove], [EternalLoveStarted], [UnhappyEnding],
+		[HonoringTheFallen], [ReadTheFallenNotes], [GivenTarnishedBreastplate], [EternalBond], [ArmorCraftingCodex],
+		[ArmorApothecaryAccepted], [ArmorCodexDeciphered], [ArmorCraftingCodexLearned], [ArmorCraftingAdvancedCodexLearned]
     )
     VALUES (
-        @Serial, @TutComplete, @BetaReset, @StoneSmith, @StoneSmithingTier, @MilethRep, @ArtursGift,
-        @CamilleGreeting, @ConnPotions, @CryptTerror, @CryptTerrorSlayed, @Dar, @DarItem,
-        @EternalLove, @Fiona, @Keela, @KeelaCount, @KeelaKill, @KeelaQuesting,
-        @KillerBee, @Neal, @NealCount, @NealKill, @AbelShopAccess, @PeteKill,
-        @PeteComplete, @SwampAccess, @SwampCount, @TagorDungeonAccess, @Lau,
+        @Serial, @MailBoxNumber, @TutComplete, @BetaReset, @StoneSmith, @StoneSmithingTier, @MilethRep,
+		@ArtursGift, @CamilleGreeting, @ConnPotions, @CryptTerror, @CryptTerrorSlayed, @CryptTerrorContinued, @CryptTerrorContSlayed,
+		@NightTerror, @NightTerrorSlayed, @DreamWalking, @DreamWalkingSlayed, @Dar, @DarItem, @ReleasedTodesbaum, @DrunkenHabit,
+		@Fiona, @Keela, @KeelaCount, @KeelaKill, @KeelaQuesting, @KillerBee, @Neal, @NealCount,
+		@NealKill, @AbelShopAccess, @PeteKill, @PeteComplete, @SwampAccess, @SwampCount, @TagorDungeonAccess, @Lau,
         @AbelReputation, @RucesionReputation, @SuomiReputation, @RionnagReputation,
         @OrenReputation, @PietReputation, @LouresReputation, @UndineReputation,
         @TagorReputation, @ThievesGuildReputation, @AssassinsGuildReputation, @AdventuresGuildReputation,
         @BlackSmithing, @BlackSmithingTier, @ArmorSmithing, @ArmorSmithingTier, @JewelCrafting, @JewelCraftingTier,
-		@BeltDegree, @BeltQuest, @SavedChristmas, @RescuedReindeer, @YetiKilled
+		@BeltDegree, @BeltQuest, @SavedChristmas, @RescuedReindeer, @YetiKilled, @UnknownStart, @PirateShipAccess,
+		@ScubaSchematics, @ScubaMaterialsQuest, @ScubaGearCrafted, @EternalLove, @EternalLoveStarted, @UnhappyEnding,
+		@HonoringTheFallen, @ReadTheFallenNotes, @GivenTarnishedBreastplate, @EternalBond, @ArmorCraftingCodex,
+		@ArmorApothecaryAccepted, @ArmorCodexDeciphered, @ArmorCraftingCodexLearned, @ArmorCraftingAdvancedCodexLearned
     );
 END
 GO
@@ -832,25 +847,20 @@ AS
 BEGIN
     SET NOCOUNT ON;
     INSERT  INTO [ZolianPlayers].[dbo].[Players] ([Serial], [Created], [Username], [Password], [PasswordAttempts], [Hacked], [LoggedIn], [LastLogged],
-    [X], [Y], [CurrentMapId], [OffenseElement], [DefenseElement], [SecondaryOffensiveElement], [SecondaryDefensiveElement], [Direction], [CurrentHp],
-    [BaseHp], [CurrentMp], [BaseMp], [_ac], [_Regen], [_Dmg], [_Hit], [_Mr], [_Str], [_Int], [_Wis], [_Con], [_Dex], [_Luck], [AbpLevel], [AbpNext],
-    [AbpTotal], [ExpLevel], [ExpNext], [ExpTotal], [Stage], [JobClass], [Path], [PastClass], [Race], [Afflictions], [Gender], [HairColor], [HairStyle],
-    [NameColor], [ProfileMessage], [Nation], [Clan], [ClanRank], [ClanTitle], [AnimalForm], [MonsterForm], [ActiveStatus], [Flags], [CurrentWeight],
-    [World], [Lantern], [Invisible], [Resting], [FireImmunity], [WaterImmunity], [WindImmunity], [EarthImmunity], [LightImmunity], [DarkImmunity], [PoisonImmunity], [EnticeImmunity],
-    [PartyStatus], [RaceSkill], [RaceSpell], [GameMaster], [ArenaHost], [Developer], [Ranger], [Knight], [GoldPoints], [StatPoints], [GamePoints],
-	[BankedGold], [ArmorImg], [HelmetImg], [ShieldImg],	[WeaponImg], [BootsImg], [HeadAccessoryImg], [Accessory1Img], [Accessory2Img], [Accessory3Img], [Accessory1Color],
-    [Accessory2Color], [Accessory3Color], [BodyColor], [BodySprite], [FaceSprite], [OverCoatImg], [BootColor], [OverCoatColor], [Pants], [Aegis], [Bleeding],
-    [Spikes], [Rending], [Reaping], [Vampirism], [Haste], [Gust], [Quake], [Rain], [Flame], [Dusk], [Dawn])
+    [X], [Y], [CurrentMapId], [Direction], [CurrentHp], [BaseHp], [CurrentMp], [BaseMp], [_ac], [_Regen], [_Dmg], [_Hit], [_Mr], [_Str], [_Int], [_Wis],
+    [_Con], [_Dex], [_Luck], [AbpLevel], [AbpNext], [AbpTotal], [ExpLevel], [ExpNext], [ExpTotal], [Stage], [JobClass], [Path], [PastClass], [Race],
+    [Afflictions], [Gender], [HairColor], [HairStyle], [NameColor], [ProfileMessage], [Nation], [Clan], [ClanRank], [ClanTitle], [MonsterForm],
+    [ActiveStatus], [Flags], [CurrentWeight], [World], [Lantern], [Invisible], [Resting], [FireImmunity], [WaterImmunity], [WindImmunity], [EarthImmunity],
+    [LightImmunity], [DarkImmunity], [PoisonImmunity], [EnticeImmunity], [PartyStatus], [RaceSkill], [RaceSpell], [GameMaster], [ArenaHost], [Knight],
+    [GoldPoints], [StatPoints], [GamePoints], [BankedGold], [ArmorImg], [HelmetImg], [ShieldImg], [WeaponImg], [BootsImg], [HeadAccessoryImg], [Accessory1Img],
+    [Accessory2Img], [Accessory3Img], [Accessory1Color], [Accessory2Color], [Accessory3Color], [BodyColor], [BodySprite], [FaceSprite], [OverCoatImg],
+    [BootColor], [OverCoatColor], [Pants])
     VALUES (@Serial, @Created, @UserName, @Password, '0', 'False', 'False', @LastLogged,
-    '7', '23', '7000', 'None', 'None', 'None', 'None', '0', @CurrentHp,
-    @BaseHp, @CurrentMp, @BaseMp, '0', '0', '0', '0', '0', '5', '5', '5', '5', '5', '0', '0', '0',
+    '7', '23', '7000', '0', @CurrentHp, @BaseHp, @CurrentMp, @BaseMp, '0', '0', '0', '0', '0', '5', '5', '5', '5', '5', '0', '0', '0',
     '0', '1', '600', '0', 'Class', 'None', 'Peasant', 'Peasant', 'UnDecided', 'Normal', @Gender, @HairColor, @HairStyle,
-    '1', '', 'Mileth', '', '', '', 'None', '0', 'Awake', 'Normal', '0',
-    '0', '0', 'False', 'Standing', 'False', 'False', 'False', 'False', 'False', 'False', 'False', 'False',
-    'AcceptingRequests', '', '', 'False', 'False', 'False', 'False', 'False', '0', '0', '0', '0',
-    '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
-    '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
-    '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0');
+    '1', '', 'Mileth', '', '', '', '0', 'Awake', 'Normal', '0', '0', '0', 'False', 'Standing', 'False', 'False', 'False', 'False', 'False', 'False', 'False', 'False',
+    'AcceptingRequests', '', '', 'False', 'False', 'False', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0',
+    '0', '0', '0', '0', '0', '0', '0', '0', '0');
 END
 GO
 
@@ -910,6 +920,7 @@ BEGIN
 
     WHEN MATCHED THEN
     UPDATE SET
+		[MailBoxNumber] = source.MailBoxNumber,
         [TutorialCompleted] = source.TutorialCompleted,
         [BetaReset] = source.BetaReset,
         [ArtursGift] = source.ArtursGift,
@@ -917,10 +928,16 @@ BEGIN
         [ConnPotions] = source.ConnPotions,
         [CryptTerror] = source.CryptTerror,
         [CryptTerrorSlayed] = source.CryptTerrorSlayed,
+		[CryptTerrorContinued] = source.CryptTerrorContinued,
+		[CryptTerrorContSlayed] = source.CryptTerrorContSlayed,
+		[NightTerror] = source.NightTerror,
+		[NightTerrorSlayed] = source.NightTerrorSlayed,
+		[DreamWalking] = source.DreamWalking,
+		[DreamWalkingSlayed] = source.DreamWalkingSlayed,
         [Dar] = source.Dar,
         [DarItem] = source.DarItem,
+		[ReleasedTodesbaum] = source.ReleasedTodesbaum,
         [DrunkenHabit] = source.DrunkenHabit,
-        [EternalLove] = source.EternalLove,
         [FionaDance] = source.FionaDance,
         [Keela] = source.Keela,
         [KeelaCount] = source.KeelaCount,
@@ -962,7 +979,24 @@ BEGIN
         [BeltQuest] = source.BeltQuest,
         [SavedChristmas] = source.SavedChristmas,
 		[RescuedReindeer] = source.RescuedReindeer,
-		[YetiKilled] = source.YetiKilled;
+		[YetiKilled] = source.YetiKilled,
+		[UnknownStart] = source.UnknownStart,
+		[PirateShipAccess] = source.PirateShipAccess,
+		[ScubaSchematics] = source.ScubaSchematics,
+		[ScubaMaterialsQuest] = source.ScubaMaterialsQuest,
+		[ScubaGearCrafted] = source.ScubaGearCrafted,
+        [EternalLove] = source.EternalLove,
+        [EternalLoveStarted] = source.EternalLoveStarted,
+        [UnhappyEnding] = source.UnhappyEnding,
+        [HonoringTheFallen] = source.HonoringTheFallen,
+        [ReadTheFallenNotes] = source.ReadTheFallenNotes,
+		[GivenTarnishedBreastplate] = source.GivenTarnishedBreastplate,
+		[EternalBond] = source.EternalBond,
+		[ArmorCraftingCodex] = source.ArmorCraftingCodex,
+		[ArmorApothecaryAccepted] = source.ArmorApothecaryAccepted,
+		[ArmorCodexDeciphered] = source.ArmorCodexDeciphered,
+		[ArmorCraftingCodexLearned] = source.ArmorCraftingCodexLearned,
+		[ArmorCraftingAdvancedCodexLearned] = source.ArmorCraftingAdvancedCodexLearned;
 END
 GO
 
@@ -990,10 +1024,6 @@ BEGIN
         [X] = source.X,
         [Y] = source.Y,
         [CurrentMapId] = source.CurrentMapId,
-        [OffenseElement] = source.OffenseElement,
-        [DefenseElement] = source.DefenseElement,
-        [SecondaryOffensiveElement] = source.SecondaryOffensiveElement,
-        [SecondaryDefensiveElement] = source.SecondaryDefensiveElement,
         [Direction] = source.Direction,
         [CurrentHp] = source.CurrentHp,
         [BaseHp] = source.BaseHp,
@@ -1031,7 +1061,6 @@ BEGIN
         [Clan] = source.Clan,
         [ClanRank] = source.ClanRank,
         [ClanTitle] = source.ClanTitle,
-        [AnimalForm] = source.AnimalForm,
         [MonsterForm] = source.MonsterForm,
         [ActiveStatus] = source.ActiveStatus,
         [Flags] = source.Flags,
@@ -1053,8 +1082,6 @@ BEGIN
         [RaceSpell] = source.RaceSpell,
         [GameMaster] = source.GameMaster,
         [ArenaHost] = source.ArenaHost,
-        [Developer] = source.Developer,
-        [Ranger] = source.Ranger,
         [Knight] = source.Knight,
         [GoldPoints] = source.GoldPoints,
         [StatPoints] = source.StatPoints,
@@ -1078,20 +1105,7 @@ BEGIN
         [OverCoatImg] = source.OverCoatImg,
         [BootColor] = source.BootColor,
         [OverCoatColor] = source.OverCoatColor,
-        [Pants] = source.Pants,
-        [Aegis] = source.Aegis,
-        [Bleeding] = source.Bleeding,
-        [Spikes] = source.Spikes,
-        [Rending] = source.Rending,
-        [Reaping] = source.Reaping,
-        [Vampirism] = source.Vampirism,
-        [Haste] = source.Haste,
-        [Gust] = source.Gust,
-        [Quake] = source.Quake,
-        [Rain] = source.Rain,
-        [Flame] = source.Flame,
-        [Dusk] = source.Dusk,
-        [Dawn] = source.Dawn;
+        [Pants] = source.Pants;
 END
 GO
 
@@ -1304,10 +1318,6 @@ BEGIN
            [X],
            [Y],
            [CurrentMapId],
-           [OffenseElement],
-           [DefenseElement],
-           [SecondaryOffensiveElement],
-           [SecondaryDefensiveElement],
            [Direction],
            [CurrentHp],
            [BaseHp],
@@ -1345,7 +1355,6 @@ BEGIN
            [Clan],
            [ClanRank],
            [ClanTitle],
-           [AnimalForm],
            [MonsterForm],
            [ActiveStatus],
            [Flags],
@@ -1367,8 +1376,6 @@ BEGIN
            [RaceSpell],
            [GameMaster],
            [ArenaHost],
-           [Developer],
-           [Ranger],
            [Knight],
            [GoldPoints],
            [StatPoints],
@@ -1392,20 +1399,7 @@ BEGIN
            [OverCoatImg],
            [BootColor],
            [OverCoatColor],
-           [Pants],
-           [Aegis],
-           [Bleeding],
-           [Spikes],
-           [Rending],
-           [Reaping],
-           [Vampirism],
-           [Haste],
-           [Gust],
-           [Quake],
-           [Rain],
-           [Flame],
-           [Dusk],
-           [Dawn]
+           [Pants]
     FROM   [ZolianPlayers].[dbo].[Players]
     WHERE  Username = @Name;
 END
@@ -1440,16 +1434,19 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    SELECT TutorialCompleted, BetaReset, StoneSmithing, StoneSmithingTier, MilethReputation, ArtursGift,
-           CamilleGreetingComplete, ConnPotions, CryptTerror, CryptTerrorSlayed, Dar,
-           DarItem, DrunkenHabit, EternalLove, FionaDance, Keela, KeelaCount, KeelaKill,
-           KeelaQuesting, KillerBee, Neal, NealCount, NealKill, AbelShopAccess, PeteKill,
+    SELECT MailBoxNumber, TutorialCompleted, BetaReset, StoneSmithing, StoneSmithingTier, MilethReputation, ArtursGift,
+           CamilleGreetingComplete, ConnPotions, CryptTerror, CryptTerrorSlayed, CryptTerrorContinued, CryptTerrorContSlayed, 
+		   NightTerror, NightTerrorSlayed, DreamWalking, DreamWalkingSlayed, Dar, DarItem, ReleasedTodesbaum, DrunkenHabit, FionaDance,
+		   Keela, KeelaCount, KeelaKill, KeelaQuesting, KillerBee, Neal, NealCount, NealKill, AbelShopAccess, PeteKill,
            PeteComplete, SwampAccess, SwampCount, TagorDungeonAccess, Lau,
            AbelReputation, RucesionReputation, SuomiReputation, RionnagReputation,
            OrenReputation, PietReputation, LouresReputation, UndineReputation,
            TagorReputation, ThievesGuildReputation, AssassinsGuildReputation, AdventuresGuildReputation,
            BlackSmithing, BlackSmithingTier, ArmorSmithing, ArmorSmithingTier, JewelCrafting, JewelCraftingTier,
-		   BeltDegree, BeltQuest, SavedChristmas, RescuedReindeer, YetiKilled
+		   BeltDegree, BeltQuest, SavedChristmas, RescuedReindeer, YetiKilled, UnknownStart, PirateShipAccess, 
+		   ScubaSchematics, ScubaMaterialsQuest, ScubaGearCrafted, EternalLove, EternalLoveStarted, UnhappyEnding,
+		   HonoringTheFallen, ReadTheFallenNotes, GivenTarnishedBreastplate, EternalBond, ArmorCraftingCodex,
+		   ArmorApothecaryAccepted, ArmorCodexDeciphered, ArmorCraftingCodexLearned, ArmorCraftingAdvancedCodexLearned
     FROM   [ZolianPlayers].[dbo].[PlayersQuests]
     WHERE  Serial = @Serial;
 END

@@ -56,8 +56,6 @@ public class Player : Sprite
     public string RaceSpell { get; set; }
     public bool GameMaster { get; set; }
     public bool ArenaHost { get; set; }
-    public bool Developer { get; set; }
-    public bool Ranger { get; set; }
     public bool Knight { get; set; }
     public ulong GoldPoints { get; set; }
     public short StatPoints { get; set; }
@@ -88,6 +86,7 @@ public class Player : Sprite
     public byte Rending { get; set; }
     public byte Reaping { get; set; }
     public byte Vampirism { get; set; }
+    public byte Ghosting { get; set; }
     public byte Haste { get; set; }
     public byte Gust { get; set; }
     public byte Quake { get; set; }
@@ -147,10 +146,22 @@ public class Quests
     public bool ConnPotions { get; set; }
     public bool CryptTerror { get; set; }
     public bool CryptTerrorSlayed { get; set; }
+    public bool CryptTerrorContinued { get; set; }
+    public bool CryptTerrorContSlayed { get; set; }
+    public bool NightTerror { get; set; }
+    public bool NightTerrorSlayed { get; set; }
+    public bool DreamWalking { get; set; }
+    public bool DreamWalkingSlayed { get; set; }
     public int Dar { get; set; }
     public string DarItem { get; set; } = string.Empty;
+    public bool ReleasedTodesbaum { get; set; }
     public bool DrunkenHabit { get; set; }
     public bool EternalLove { get; set; }
+    public bool EternalLoveStarted { get; set; }
+    public bool UnhappyEnding { get; set; }
+    public bool HonoringTheFallen { get; set; }
+    public bool ReadTheFallenNotes { get; set; }
+    public bool GivenTarnishedBreastplate { get; set; }
     public bool FionaDance { get; set; }
     public int Keela { get; set; }
     public int KeelaCount { get; set; }
@@ -172,4 +183,15 @@ public class Quests
     public bool SavedChristmas { get; set; }
     public bool RescuedReindeer { get; set; }
     public bool YetiKilled { get; set; }
+    public bool UnknownStart { get; set; }
+    public bool PirateShipAccess { get; set; }
+    public bool ScubaSchematics { get; set; }
+    public bool ScubaMaterialsQuest { get; set; }
+    public bool ScubaGearCrafted { get; set; }
+    public string EternalBond { get; set; } = string.Empty;
+    public bool ArmorCraftingCodex { get; set; }
+    public bool ArmorApothecaryAccepted { get; set; }
+    public bool ArmorCodexDeciphered { get; set; }
+    public bool ArmorCraftingCodexLearned { get; set; }
+    public bool ArmorCraftingAdvancedCodexLearned { get; set; }
 }

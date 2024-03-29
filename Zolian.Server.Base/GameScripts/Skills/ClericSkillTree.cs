@@ -31,13 +31,13 @@ public class Blink(Skill skill) : SkillScript(skill)
         SendPortAnimation(damageDealingSprite, _oldPosition);
 
         damageDealingSprite.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendAnimation(76, null, damageDealingSprite.Serial));
-        _skillMethod.Train(client, skill);
-        damageDealingSprite.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendSound(skill.Template.Sound, false));
+        _skillMethod.Train(client, Skill);
+        damageDealingSprite.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendSound(Skill.Template.Sound, false));
     }
 
     public override void OnUse(Sprite sprite)
     {
-        if (!skill.CanUse()) return;
+        if (!Skill.CanUse()) return;
         if (sprite is not Aisling aisling) return;
 
         aisling.Client.SendServerMessage(ServerMessageType.OrangeBar1, "Use the Cleric's Feather (Drag & Drop on map)");
@@ -142,7 +142,7 @@ public class Smite(Skill skill) : SkillScript(skill)
 
         if (enemy.Count == 0)
         {
-            _skillMethod.FailedAttempt(aisling, skill, action);
+            _skillMethod.FailedAttempt(aisling, Skill, action);
             OnFailed(aisling);
             return;
         }
@@ -159,12 +159,12 @@ public class Smite(Skill skill) : SkillScript(skill)
                 var debuff = new DebuffFrozen();
                 {
                     if (!_target.HasDebuff(debuff.Name))
-                        _skillMethod.ApplyPhysicalDebuff(aisling.Client, debuff, _target, skill);
+                        _skillMethod.ApplyPhysicalDebuff(aisling.Client, debuff, _target, Skill);
                 }
             }
 
             var dmgCalc = DamageCalc(sprite);
-            _skillMethod.OnSuccessWithoutAction(_target, aisling, skill, dmgCalc, _crit);
+            _skillMethod.OnSuccessWithoutAction(_target, aisling, Skill, dmgCalc, _crit);
         }
 
         aisling.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendBodyAnimation(action.SourceId, action.BodyAnimation, action.AnimationSpeed));
@@ -172,11 +172,11 @@ public class Smite(Skill skill) : SkillScript(skill)
 
     public override void OnUse(Sprite sprite)
     {
-        if (!skill.CanUse()) return;
+        if (!Skill.CanUse()) return;
 
         if (sprite is Aisling aisling)
         {
-            _success = _skillMethod.OnUse(aisling, skill);
+            _success = _skillMethod.OnUse(aisling, Skill);
 
             if (_success)
             {
@@ -203,11 +203,11 @@ public class Smite(Skill skill) : SkillScript(skill)
                         var debuff = new DebuffFrozen();
                         {
                             if (!player.HasDebuff(debuff.Name))
-                                _skillMethod.ApplyPhysicalDebuff(player.Client, debuff, player, skill);
+                                _skillMethod.ApplyPhysicalDebuff(player.Client, debuff, player, Skill);
                         }
 
                         var dmgCalc = DamageCalc(sprite);
-                        _skillMethod.OnSuccessWithoutAction(player, sprite, skill, dmgCalc, _crit);
+                        _skillMethod.OnSuccessWithoutAction(player, sprite, Skill, dmgCalc, _crit);
                         break;
                     }
             }
@@ -221,7 +221,7 @@ public class Smite(Skill skill) : SkillScript(skill)
         if (sprite is Aisling damageDealingAisling)
         {
             var client = damageDealingAisling.Client;
-            var imp = 50 + skill.Level;
+            var imp = 50 + Skill.Level;
             dmg = client.Aisling.Str * 3 + client.Aisling.Int * 2;
             dmg += dmg * imp / 100;
         }
@@ -240,18 +240,13 @@ public class Smite(Skill skill) : SkillScript(skill)
 [Script("Remedy")]
 public class Remedy(Skill skill) : SkillScript(skill)
 {
-    private Sprite _target;
     private readonly GlobalSkillMethods _skillMethod = new();
 
     public override void OnFailed(Sprite sprite)
     {
         if (sprite is not Aisling damageDealingAisling) return;
         var client = damageDealingAisling.Client;
-
         client.SendServerMessage(ServerMessageType.OrangeBar1, "Failed to focus");
-        if (_target is not { Alive: true }) return;
-        if (sprite.NextTo(_target.Position.X, _target.Position.Y) && sprite.Facing(_target.Position.X, _target.Position.Y, out _))
-            sprite.PlayerNearby?.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendAnimation(skill.Template.MissAnimation, null, _target.Serial));
     }
 
     public override void OnSuccess(Sprite sprite)
@@ -259,7 +254,7 @@ public class Remedy(Skill skill) : SkillScript(skill)
         if (sprite is not Aisling aisling) return;
         aisling.ActionUsed = "Remedy";
 
-        var manaSap = (int)(aisling.MaximumMp * .85);
+        var manaSap = (long)(aisling.MaximumMp * .85);
 
         if (aisling.CurrentMp < manaSap)
         {
@@ -283,12 +278,12 @@ public class Remedy(Skill skill) : SkillScript(skill)
             debuff.OnEnded(aisling, debuff);
         }
 
-        _skillMethod.OnSuccess(aisling, aisling, skill, 0, false, action);
+        _skillMethod.OnSuccess(aisling, aisling, Skill, 0, false, action);
     }
 
     public override void OnUse(Sprite sprite)
     {
-        if (!skill.CanUse()) return;
+        if (!Skill.CanUse()) return;
         if (sprite is not Aisling aisling) return;
         OnSuccess(aisling);
     }
@@ -306,7 +301,7 @@ public class HolyLance(Skill skill) : SkillScript(skill)
     {
         if (_target is not { Alive: true }) return;
         if (sprite.NextTo(_target.Position.X, _target.Position.Y) && sprite.Facing(_target.Position.X, _target.Position.Y, out _))
-            sprite.PlayerNearby?.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendAnimation(skill.Template.MissAnimation, null, _target.Serial));
+            sprite.PlayerNearby?.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendAnimation(Skill.Template.MissAnimation, null, _target.Serial));
     }
 
     public override void OnSuccess(Sprite sprite)
@@ -316,7 +311,7 @@ public class HolyLance(Skill skill) : SkillScript(skill)
         var action = new BodyAnimationArgs
         {
             AnimationSpeed = 30,
-            BodyAnimation = BodyAnimation.Stab,
+            BodyAnimation = BodyAnimation.Assail,
             Sound = null,
             SourceId = sprite.Serial
         };
@@ -326,7 +321,7 @@ public class HolyLance(Skill skill) : SkillScript(skill)
 
         if (enemy.Count == 0)
         {
-            _skillMethod.FailedAttempt(aisling, skill, action);
+            _skillMethod.FailedAttempt(aisling, Skill, action);
             OnFailed(aisling);
             return;
         }
@@ -338,8 +333,8 @@ public class HolyLance(Skill skill) : SkillScript(skill)
             _target = i;
             var dmgCalc = DamageCalc(sprite);
             dmgCalc += (int)spellMethod.WeaponDamageElementalProc(aisling, 1);
-            _target.ApplyElementalSkillDamage(aisling, dmgCalc, ElementManager.Element.Holy, skill);
-            _skillMethod.OnSuccessWithoutAction(_target, aisling, skill, 0, _crit);
+            _target.ApplyElementalSkillDamage(aisling, dmgCalc, ElementManager.Element.Holy, Skill);
+            _skillMethod.OnSuccessWithoutAction(_target, aisling, Skill, 0, _crit);
         }
 
         aisling.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendBodyAnimation(action.SourceId, action.BodyAnimation, action.AnimationSpeed));
@@ -347,11 +342,11 @@ public class HolyLance(Skill skill) : SkillScript(skill)
 
     public override void OnUse(Sprite sprite)
     {
-        if (!skill.CanUse()) return;
+        if (!Skill.CanUse()) return;
 
         if (sprite is Aisling aisling)
         {
-            _success = _skillMethod.OnUse(aisling, skill);
+            _success = _skillMethod.OnUse(aisling, Skill);
 
             if (_success)
             {
@@ -377,13 +372,13 @@ public class HolyLance(Skill skill) : SkillScript(skill)
 
             if (_target == null || _target.Serial == sprite.Serial || !_target.Attackable)
             {
-                _skillMethod.FailedAttempt(sprite, skill, action);
+                _skillMethod.FailedAttempt(sprite, Skill, action);
                 OnFailed(sprite);
                 return;
             }
 
             var dmgCalc = DamageCalc(sprite);
-            _skillMethod.OnSuccess(_target, sprite, skill, dmgCalc, _crit, action);
+            _skillMethod.OnSuccess(_target, sprite, Skill, dmgCalc, _crit, action);
         }
     }
 
@@ -394,7 +389,7 @@ public class HolyLance(Skill skill) : SkillScript(skill)
         if (sprite is Aisling damageDealingAisling)
         {
             var client = damageDealingAisling.Client;
-            var imp = 10 + skill.Level;
+            var imp = 10 + Skill.Level;
             dmg = client.Aisling.Str * 4 + client.Aisling.Int * 4 * Math.Max(damageDealingAisling.Position.DistanceFrom(_target.Position), 4);
             dmg += dmg * imp / 100;
         }
@@ -422,7 +417,7 @@ public class Recite(Skill skill) : SkillScript(skill)
     {
         if (_target is not { Alive: true }) return;
         if (sprite.NextTo(_target.Position.X, _target.Position.Y) && sprite.Facing(_target.Position.X, _target.Position.Y, out _))
-            sprite.PlayerNearby?.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendAnimation(skill.Template.MissAnimation, null, _target.Serial));
+            sprite.PlayerNearby?.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendAnimation(Skill.Template.MissAnimation, null, _target.Serial));
     }
 
     public override void OnSuccess(Sprite sprite)
@@ -433,7 +428,7 @@ public class Recite(Skill skill) : SkillScript(skill)
         var action = new BodyAnimationArgs
         {
             AnimationSpeed = 20,
-            BodyAnimation = BodyAnimation.Punch,
+            BodyAnimation = BodyAnimation.PriestCast,
             Sound = null,
             SourceId = sprite.Serial
         };
@@ -443,7 +438,7 @@ public class Recite(Skill skill) : SkillScript(skill)
 
         if (enemy.Count == 0)
         {
-            _skillMethod.FailedAttempt(aisling, skill, action);
+            _skillMethod.FailedAttempt(aisling, Skill, action);
             OnFailed(aisling);
             return;
         }
@@ -490,8 +485,8 @@ public class Recite(Skill skill) : SkillScript(skill)
                     break;
             }
 
-            _target.ApplyElementalSkillDamage(aisling, dmgCalc, element, skill);
-            _skillMethod.OnSuccessWithoutAction(_target, aisling, skill, 0, _crit);
+            _target.ApplyElementalSkillDamage(aisling, dmgCalc, element, Skill);
+            _skillMethod.OnSuccessWithoutAction(_target, aisling, Skill, 0, _crit);
         }
 
         aisling.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendBodyAnimation(action.SourceId, action.BodyAnimation, action.AnimationSpeed));
@@ -499,11 +494,11 @@ public class Recite(Skill skill) : SkillScript(skill)
 
     public override void OnUse(Sprite sprite)
     {
-        if (!skill.CanUse()) return;
+        if (!Skill.CanUse()) return;
 
         if (sprite is Aisling aisling)
         {
-            _success = _skillMethod.OnUse(aisling, skill);
+            _success = _skillMethod.OnUse(aisling, Skill);
 
             if (_success)
             {
@@ -529,13 +524,13 @@ public class Recite(Skill skill) : SkillScript(skill)
 
             if (_target == null || _target.Serial == sprite.Serial || !_target.Attackable)
             {
-                _skillMethod.FailedAttempt(sprite, skill, action);
+                _skillMethod.FailedAttempt(sprite, Skill, action);
                 OnFailed(sprite);
                 return;
             }
 
             var dmgCalc = DamageCalc(sprite);
-            _skillMethod.OnSuccess(_target, sprite, skill, dmgCalc, _crit, action);
+            _skillMethod.OnSuccess(_target, sprite, Skill, dmgCalc, _crit, action);
         }
     }
 
@@ -546,7 +541,7 @@ public class Recite(Skill skill) : SkillScript(skill)
         if (sprite is Aisling damageDealingAisling)
         {
             var client = damageDealingAisling.Client;
-            var imp = 10 + skill.Level;
+            var imp = 10 + Skill.Level;
             dmg = client.Aisling.Str * 7 + client.Aisling.Con * 7;
             dmg += dmg * imp / 100;
         }
@@ -574,7 +569,7 @@ public class UnHolySwipe(Skill skill) : SkillScript(skill)
     {
         if (_target is not { Alive: true }) return;
         if (sprite.NextTo(_target.Position.X, _target.Position.Y) && sprite.Facing(_target.Position.X, _target.Position.Y, out _))
-            sprite.PlayerNearby?.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendAnimation(skill.Template.MissAnimation, null, _target.Serial));
+            sprite.PlayerNearby?.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendAnimation(Skill.Template.MissAnimation, null, _target.Serial));
     }
 
     public override void OnSuccess(Sprite sprite)
@@ -585,7 +580,7 @@ public class UnHolySwipe(Skill skill) : SkillScript(skill)
         var action = new BodyAnimationArgs
         {
             AnimationSpeed = 20,
-            BodyAnimation = BodyAnimation.Punch,
+            BodyAnimation = BodyAnimation.Assail,
             Sound = null,
             SourceId = sprite.Serial
         };
@@ -595,7 +590,7 @@ public class UnHolySwipe(Skill skill) : SkillScript(skill)
 
         if (enemy.Count == 0)
         {
-            _skillMethod.FailedAttempt(aisling, skill, action);
+            _skillMethod.FailedAttempt(aisling, Skill, action);
             OnFailed(aisling);
             return;
         }
@@ -605,8 +600,8 @@ public class UnHolySwipe(Skill skill) : SkillScript(skill)
             _target = i;
             var dmgCalc = DamageCalc(sprite);
             dmgCalc += (int)spellMethod.WeaponDamageElementalProc(aisling, 1);
-            _target.ApplyElementalSkillDamage(aisling, dmgCalc, ElementManager.Element.Void, skill);
-            _skillMethod.OnSuccessWithoutAction(_target, aisling, skill, 0, _crit);
+            _target.ApplyElementalSkillDamage(aisling, dmgCalc, ElementManager.Element.Void, Skill);
+            _skillMethod.OnSuccessWithoutAction(_target, aisling, Skill, 0, _crit);
         }
 
         aisling.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendBodyAnimation(action.SourceId, action.BodyAnimation, action.AnimationSpeed));
@@ -614,11 +609,11 @@ public class UnHolySwipe(Skill skill) : SkillScript(skill)
 
     public override void OnUse(Sprite sprite)
     {
-        if (!skill.CanUse()) return;
+        if (!Skill.CanUse()) return;
 
         if (sprite is Aisling aisling)
         {
-            _success = _skillMethod.OnUse(aisling, skill);
+            _success = _skillMethod.OnUse(aisling, Skill);
 
             if (_success)
             {
@@ -644,13 +639,13 @@ public class UnHolySwipe(Skill skill) : SkillScript(skill)
 
             if (_target == null || _target.Serial == sprite.Serial || !_target.Attackable)
             {
-                _skillMethod.FailedAttempt(sprite, skill, action);
+                _skillMethod.FailedAttempt(sprite, Skill, action);
                 OnFailed(sprite);
                 return;
             }
 
             var dmgCalc = DamageCalc(sprite);
-            _skillMethod.OnSuccess(_target, sprite, skill, dmgCalc, _crit, action);
+            _skillMethod.OnSuccess(_target, sprite, Skill, dmgCalc, _crit, action);
         }
     }
 
@@ -661,7 +656,7 @@ public class UnHolySwipe(Skill skill) : SkillScript(skill)
         if (sprite is Aisling damageDealingAisling)
         {
             var client = damageDealingAisling.Client;
-            var imp = 10 + skill.Level;
+            var imp = 10 + Skill.Level;
             dmg = client.Aisling.Str * 10 + client.Aisling.Dex * 10;
             dmg += dmg * imp / 100;
         }
@@ -689,7 +684,7 @@ public class ConsecratedStrike(Skill skill) : SkillScript(skill)
     {
         if (_target is not { Alive: true }) return;
         if (sprite.NextTo(_target.Position.X, _target.Position.Y) && sprite.Facing(_target.Position.X, _target.Position.Y, out _))
-            sprite.PlayerNearby?.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendAnimation(skill.Template.MissAnimation, null, _target.Serial));
+            sprite.PlayerNearby?.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendAnimation(Skill.Template.MissAnimation, null, _target.Serial));
     }
 
     public override void OnSuccess(Sprite sprite)
@@ -700,7 +695,7 @@ public class ConsecratedStrike(Skill skill) : SkillScript(skill)
         var action = new BodyAnimationArgs
         {
             AnimationSpeed = 20,
-            BodyAnimation = BodyAnimation.Punch,
+            BodyAnimation = BodyAnimation.Assail,
             Sound = null,
             SourceId = sprite.Serial
         };
@@ -710,7 +705,7 @@ public class ConsecratedStrike(Skill skill) : SkillScript(skill)
 
         if (enemy.Count == 0)
         {
-            _skillMethod.FailedAttempt(aisling, skill, action);
+            _skillMethod.FailedAttempt(aisling, Skill, action);
             OnFailed(aisling);
             return;
         }
@@ -720,8 +715,8 @@ public class ConsecratedStrike(Skill skill) : SkillScript(skill)
             _target = i;
             var dmgCalc = DamageCalc(sprite);
             dmgCalc += (int)spellMethod.WeaponDamageElementalProc(aisling, 1);
-            _target.ApplyElementalSkillDamage(aisling, dmgCalc, ElementManager.Element.Holy, skill);
-            _skillMethod.OnSuccessWithoutAction(_target, aisling, skill, 0, _crit);
+            _target.ApplyElementalSkillDamage(aisling, dmgCalc, ElementManager.Element.Holy, Skill);
+            _skillMethod.OnSuccessWithoutAction(_target, aisling, Skill, 0, _crit);
         }
 
         aisling.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendBodyAnimation(action.SourceId, action.BodyAnimation, action.AnimationSpeed));
@@ -729,11 +724,11 @@ public class ConsecratedStrike(Skill skill) : SkillScript(skill)
 
     public override void OnUse(Sprite sprite)
     {
-        if (!skill.CanUse()) return;
+        if (!Skill.CanUse()) return;
 
         if (sprite is Aisling aisling)
         {
-            _success = _skillMethod.OnUse(aisling, skill);
+            _success = _skillMethod.OnUse(aisling, Skill);
 
             if (_success)
             {
@@ -759,13 +754,13 @@ public class ConsecratedStrike(Skill skill) : SkillScript(skill)
 
             if (_target == null || _target.Serial == sprite.Serial || !_target.Attackable)
             {
-                _skillMethod.FailedAttempt(sprite, skill, action);
+                _skillMethod.FailedAttempt(sprite, Skill, action);
                 OnFailed(sprite);
                 return;
             }
 
             var dmgCalc = DamageCalc(sprite);
-            _skillMethod.OnSuccess(_target, sprite, skill, dmgCalc, _crit, action);
+            _skillMethod.OnSuccess(_target, sprite, Skill, dmgCalc, _crit, action);
         }
     }
 
@@ -776,7 +771,7 @@ public class ConsecratedStrike(Skill skill) : SkillScript(skill)
         if (sprite is Aisling damageDealingAisling)
         {
             var client = damageDealingAisling.Client;
-            var imp = 10 + skill.Level;
+            var imp = 10 + Skill.Level;
             dmg = client.Aisling.Str * 8 + client.Aisling.Con * 8;
             dmg += dmg * imp / 100;
         }
@@ -804,7 +799,7 @@ public class DivineWrath(Skill skill) : SkillScript(skill)
     {
         if (_target is not { Alive: true }) return;
         if (sprite.NextTo(_target.Position.X, _target.Position.Y) && sprite.Facing(_target.Position.X, _target.Position.Y, out _))
-            sprite.PlayerNearby?.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendAnimation(skill.Template.MissAnimation, null, _target.Serial));
+            sprite.PlayerNearby?.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendAnimation(Skill.Template.MissAnimation, null, _target.Serial));
     }
 
     public override void OnSuccess(Sprite sprite)
@@ -815,7 +810,7 @@ public class DivineWrath(Skill skill) : SkillScript(skill)
         var action = new BodyAnimationArgs
         {
             AnimationSpeed = 20,
-            BodyAnimation = BodyAnimation.Punch,
+            BodyAnimation = BodyAnimation.PriestCast,
             Sound = null,
             SourceId = sprite.Serial
         };
@@ -825,7 +820,7 @@ public class DivineWrath(Skill skill) : SkillScript(skill)
 
         if (enemy.Count == 0)
         {
-            _skillMethod.FailedAttempt(aisling, skill, action);
+            _skillMethod.FailedAttempt(aisling, Skill, action);
             OnFailed(aisling);
             return;
         }
@@ -845,13 +840,13 @@ public class DivineWrath(Skill skill) : SkillScript(skill)
             }
             else
             {
-                _skillMethod.FailedAttempt(aisling, skill, action);
+                _skillMethod.FailedAttempt(aisling, Skill, action);
                 OnFailed(aisling);
                 return;
             }
 
-            _target.ApplyElementalSkillDamage(aisling, dmgCalc, ElementManager.Element.Holy, skill);
-            _skillMethod.OnSuccessWithoutAction(_target, aisling, skill, 0, _crit);
+            _target.ApplyElementalSkillDamage(aisling, dmgCalc, ElementManager.Element.Holy, Skill);
+            _skillMethod.OnSuccessWithoutAction(_target, aisling, Skill, 0, _crit);
         }
 
         aisling.SendTargetedClientMethod(Scope.NearbyAislings, c => c.SendBodyAnimation(action.SourceId, action.BodyAnimation, action.AnimationSpeed));
@@ -859,11 +854,11 @@ public class DivineWrath(Skill skill) : SkillScript(skill)
 
     public override void OnUse(Sprite sprite)
     {
-        if (!skill.CanUse()) return;
+        if (!Skill.CanUse()) return;
 
         if (sprite is Aisling aisling)
         {
-            _success = _skillMethod.OnUse(aisling, skill);
+            _success = _skillMethod.OnUse(aisling, Skill);
 
             if (_success)
             {
@@ -889,13 +884,13 @@ public class DivineWrath(Skill skill) : SkillScript(skill)
 
             if (_target == null || _target.Serial == sprite.Serial || !_target.Attackable)
             {
-                _skillMethod.FailedAttempt(sprite, skill, action);
+                _skillMethod.FailedAttempt(sprite, Skill, action);
                 OnFailed(sprite);
                 return;
             }
 
             var dmgCalc = DamageCalc(sprite);
-            _skillMethod.OnSuccess(_target, sprite, skill, dmgCalc, _crit, action);
+            _skillMethod.OnSuccess(_target, sprite, Skill, dmgCalc, _crit, action);
         }
     }
 
@@ -906,7 +901,7 @@ public class DivineWrath(Skill skill) : SkillScript(skill)
         if (sprite is Aisling damageDealingAisling)
         {
             var client = damageDealingAisling.Client;
-            var imp = 10 + skill.Level;
+            var imp = 10 + Skill.Level;
             dmg = client.Aisling.Int * 11 + client.Aisling.Con * 5;
             dmg += dmg * imp / 100;
         }

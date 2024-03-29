@@ -190,24 +190,24 @@ public class WorldClient : SocketClientBase, IWorldClient
     public int MapClicks { get; set; }
     public uint EntryCheck { get; set; }
     private readonly object _warpCheckLock = new();
-    private readonly Queue<ExperienceEvent> _expQueue = new();
-    private readonly Queue<AbilityEvent> _apQueue = new();
-    private readonly Queue<DebuffEvent> _debuffApplyQueue = new();
-    private readonly Queue<BuffEvent> _buffApplyQueue = new();
-    private readonly Queue<DebuffEvent> _debuffUpdateQueue = new();
-    private readonly Queue<BuffEvent> _buffUpdateQueue = new();
+    private readonly Queue<ExperienceEvent> _expQueue = [];
+    private readonly Queue<AbilityEvent> _apQueue = [];
+    private readonly Queue<DebuffEvent> _debuffApplyQueue = [];
+    private readonly Queue<BuffEvent> _buffApplyQueue = [];
+    private readonly Queue<DebuffEvent> _debuffUpdateQueue = [];
+    private readonly Queue<BuffEvent> _buffUpdateQueue = [];
     private readonly object _expQueueLock = new();
     private readonly object _apQueueLock = new();
     private readonly object _buffQueueLockApply = new();
     private readonly object _debuffQueueLockApply = new();
     private readonly object _buffQueueLockUpdate = new();
     private readonly object _debuffQueueLockUpdate = new();
-    private Task _experienceTask;
-    private Task _apTask;
-    private Task _applyBuffTask;
-    private Task _applyDebuffTask;
-    private Task _updateBuffTask;
-    private Task _updateDebuffTask;
+    private readonly Task _experienceTask;
+    private readonly Task _apTask;
+    private readonly Task _applyBuffTask;
+    private readonly Task _applyDebuffTask;
+    private readonly Task _updateBuffTask;
+    private readonly Task _updateDebuffTask;
 
     public WorldClient([NotNull] IWorldServer<WorldClient> server, [NotNull] Socket socket,
         [NotNull] ICrypto crypto, [NotNull] IPacketSerializer packetSerializer,
@@ -599,22 +599,22 @@ public class WorldClient : SocketClientBase, IWorldClient
         if (Aisling.Afflictions.AfflictionFlagIsSet(Afflictions.Lycanisim))
         {
             hasAnAffliction = true;
-            var debuff = Aisling.HasDebuff("Lycanisim");
-            if (!debuff)
+            var buff = Aisling.HasBuff("Lycanisim");
+            if (!buff)
             {
-                var applyDebuff = new Lycanisim();
-                EnqueueDebuffAppliedEvent(Aisling, applyDebuff, TimeSpan.FromSeconds(applyDebuff.Length));
+                var applyDebuff = new BuffLycanisim();
+                EnqueueBuffAppliedEvent(Aisling, applyDebuff, TimeSpan.FromSeconds(applyDebuff.Length));
             }
         }
 
         if (Aisling.Afflictions.AfflictionFlagIsSet(Afflictions.Vampirisim))
         {
             hasAnAffliction = true;
-            var debuff = Aisling.HasDebuff("Vampirisim");
-            if (!debuff)
+            var buff = Aisling.HasBuff("Vampirisim");
+            if (!buff)
             {
-                var applyDebuff = new Vampirisim();
-                EnqueueDebuffAppliedEvent(Aisling, applyDebuff, TimeSpan.FromSeconds(applyDebuff.Length));
+                var applyDebuff = new BuffVampirisim();
+                EnqueueBuffAppliedEvent(Aisling, applyDebuff, TimeSpan.FromSeconds(applyDebuff.Length));
             }
         }
 
@@ -747,9 +747,9 @@ public class WorldClient : SocketClientBase, IWorldClient
         }
         catch (Exception ex)
         {
-            ServerSetup.Logger($"Unhandled Exception in {nameof(Load)}.");
-            ServerSetup.Logger(ex.Message, LogLevel.Error);
-            ServerSetup.Logger(ex.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger($"Unhandled Exception in {nameof(Load)}.");
+            ServerSetup.EventsLogger(ex.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(ex.StackTrace, LogLevel.Error);
             Crashes.TrackError(ex);
 
             LoadLock.Release();
@@ -854,8 +854,8 @@ public class WorldClient : SocketClientBase, IWorldClient
         }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
 
@@ -902,8 +902,7 @@ public class WorldClient : SocketClientBase, IWorldClient
                         }
 
                         if (routineCheck != 4) continue;
-                        ServerSetup.Logger(
-                            $"{Aisling.Username} has somehow exceeded their inventory, and have hanging items.");
+                        ServerSetup.EventsLogger($"{Aisling.Username} has somehow exceeded their inventory, and have hanging items.");
                         Disconnect();
                         break;
                     }
@@ -944,8 +943,8 @@ public class WorldClient : SocketClientBase, IWorldClient
         }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
 
@@ -1023,8 +1022,8 @@ public class WorldClient : SocketClientBase, IWorldClient
         }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
 
@@ -1069,8 +1068,8 @@ public class WorldClient : SocketClientBase, IWorldClient
         }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
 
@@ -1115,8 +1114,8 @@ public class WorldClient : SocketClientBase, IWorldClient
         }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
 
@@ -1169,8 +1168,8 @@ public class WorldClient : SocketClientBase, IWorldClient
         }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
 
@@ -1216,8 +1215,8 @@ public class WorldClient : SocketClientBase, IWorldClient
         }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
 
@@ -1249,8 +1248,8 @@ public class WorldClient : SocketClientBase, IWorldClient
         }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
 
@@ -1284,8 +1283,8 @@ public class WorldClient : SocketClientBase, IWorldClient
         }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
 
@@ -1321,8 +1320,8 @@ public class WorldClient : SocketClientBase, IWorldClient
         }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
 
@@ -1344,8 +1343,8 @@ public class WorldClient : SocketClientBase, IWorldClient
         }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
     }
@@ -1363,8 +1362,8 @@ public class WorldClient : SocketClientBase, IWorldClient
         }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
     }
@@ -1597,6 +1596,8 @@ public class WorldClient : SocketClientBase, IWorldClient
         //    break;
         //}
 
+        var gamePoints = CalculateGearPoints(this);
+
         var args = new AttributesArgs
         {
             Ability = abCap,
@@ -1609,7 +1610,7 @@ public class WorldClient : SocketClientBase, IWorldClient
             DefenseElement = (Element)Aisling.DefenseElement,
             Dex = (byte)Math.Clamp(Aisling.Dex, 0, 255),
             Dmg = (byte)Math.Clamp((sbyte)Aisling.Dmg, sbyte.MinValue, sbyte.MaxValue),
-            GamePoints = (uint)Aisling.GamePoints,
+            GamePoints = gamePoints,
             Gold = (uint)Aisling.GoldPoints,
             Hit = (byte)Math.Clamp((sbyte)Aisling.Hit, sbyte.MinValue, sbyte.MaxValue),
             Int = (byte)Math.Clamp(Aisling.Int, 0, 255),
@@ -1633,6 +1634,125 @@ public class WorldClient : SocketClientBase, IWorldClient
         };
 
         Send(args);
+    }
+
+    private uint CalculateGearPoints(WorldClient client)
+    {
+        var points = 0;
+        foreach (var slot in client.Aisling.EquipmentManager.Equipment.Values)
+        {
+            if (slot?.Item == null) continue;
+            switch (slot.Item.ItemQuality)
+            {
+                case Item.Quality.Damaged:
+                    points -= 100;
+                    break;
+                case Item.Quality.Common:
+                    break;
+                case Item.Quality.Uncommon:
+                    points += 50;
+                    break;
+                case Item.Quality.Rare:
+                    points += 100;
+                    break;
+                case Item.Quality.Epic:
+                    points += 200;
+                    break;
+                case Item.Quality.Legendary:
+                    points += 400;
+                    break;
+                case Item.Quality.Forsaken:
+                    points += 500;
+                    break;
+                case Item.Quality.Mythic:
+                    points += 1000;
+                    break;
+                case Item.Quality.Primordial:
+                case Item.Quality.Transcendent:
+                    points += 2000;
+                    break;
+            }
+
+            switch (slot.Item.ItemMaterial)
+            {
+                case Item.ItemMaterials.None:
+                    break;
+                case Item.ItemMaterials.Copper:
+                    points += 50;
+                    break;
+                case Item.ItemMaterials.Iron:
+                    points += 100;
+                    break;
+                case Item.ItemMaterials.Steel:
+                    points += 150;
+                    break;
+                case Item.ItemMaterials.Forged:
+                    points += 200;
+                    break;
+                case Item.ItemMaterials.Elven:
+                    points += 250;
+                    break;
+                case Item.ItemMaterials.Dwarven:
+                    points += 350;
+                    break;
+                case Item.ItemMaterials.Mythril:
+                    points += 450;
+                    break;
+                case Item.ItemMaterials.Hybrasyl:
+                    points += 600;
+                    break;
+                case Item.ItemMaterials.MoonStone:
+                    points += 800;
+                    break;
+                case Item.ItemMaterials.SunStone:
+                    points += 1000;
+                    break;
+                case Item.ItemMaterials.Ebony:
+                    points += 1500;
+                    break;
+                case Item.ItemMaterials.Runic:
+                    points += 2500;
+                    break;
+                case Item.ItemMaterials.Chaos:
+                    points += 4000;
+                    break;
+            }
+
+            switch (slot.Item.GearEnhancement)
+            {
+                case Item.GearEnhancements.None:
+                    break;
+                case Item.GearEnhancements.One:
+                    points += 50;
+                    break;
+                case Item.GearEnhancements.Two:
+                    points += 100;
+                    break;
+                case Item.GearEnhancements.Three:
+                    points += 200;
+                    break;
+                case Item.GearEnhancements.Four:
+                    points += 300;
+                    break;
+                case Item.GearEnhancements.Five:
+                    points += 400;
+                    break;
+                case Item.GearEnhancements.Six:
+                    points += 500;
+                    break;
+                case Item.GearEnhancements.Seven:
+                    points += 600;
+                    break;
+                case Item.GearEnhancements.Eight:
+                    points += 800;
+                    break;
+                case Item.GearEnhancements.Nine:
+                    points += 1500;
+                    break;
+            }
+        }
+
+        return (uint)points;
     }
 
     /// <summary>
@@ -2352,8 +2472,8 @@ public class WorldClient : SocketClientBase, IWorldClient
                     }
                     catch (Exception ex)
                     {
-                        ServerSetup.Logger(ex.Message, LogLevel.Error);
-                        ServerSetup.Logger(ex.StackTrace, LogLevel.Error);
+                        ServerSetup.EventsLogger(ex.Message, LogLevel.Error);
+                        ServerSetup.EventsLogger(ex.StackTrace, LogLevel.Error);
                         Crashes.TrackError(ex);
                     }
 
@@ -2378,8 +2498,8 @@ public class WorldClient : SocketClientBase, IWorldClient
                     }
                     catch (Exception ex)
                     {
-                        ServerSetup.Logger(ex.Message, LogLevel.Error);
-                        ServerSetup.Logger(ex.StackTrace, LogLevel.Error);
+                        ServerSetup.EventsLogger(ex.Message, LogLevel.Error);
+                        ServerSetup.EventsLogger(ex.StackTrace, LogLevel.Error);
                         Crashes.TrackError(ex);
                     }
 
@@ -2806,7 +2926,7 @@ public class WorldClient : SocketClientBase, IWorldClient
             GuildName = $"{aisling.Clan} - {aisling.ClanRank}",
             GuildRank = aisling.GameMaster
                 ? "Game Master"
-                : $"Vit: {aisling.BaseHp + aisling.BaseMp * 2}",
+                : $"GP: {Aisling.GamePoints}",
             Id = aisling.Serial,
             LegendMarks = legendMarks,
             Name = aisling.Username,
@@ -3363,7 +3483,7 @@ public class WorldClient : SocketClientBase, IWorldClient
             GuildName = $"{Aisling.Clan} - {Aisling.ClanRank}",
             GuildRank = Aisling.GameMaster
                 ? "Game Master"
-                : $"Vit: {Aisling.BaseHp + Aisling.BaseMp * 2}",
+                : $"GP: {Aisling.GamePoints}",
             IsMaster = Aisling.Stage.StageFlagIsSet(ClassStage.Master),
             LegendMarks = legendMarks,
             Name = Aisling.Username,
@@ -3518,7 +3638,7 @@ public class WorldClient : SocketClientBase, IWorldClient
                         var creatureInfo = new CreatureInfo
                         {
                             Id = creature.Serial,
-                            Sprite = creature.Template.Image,
+                            Sprite = creature.Image,
                             X = creature.X,
                             Y = creature.Y,
                             CreatureType = CreatureType.Normal,
@@ -3540,7 +3660,7 @@ public class WorldClient : SocketClientBase, IWorldClient
                         var npcInfo = new CreatureInfo
                         {
                             Id = npc.Serial,
-                            Sprite = npc.Template.Image,
+                            Sprite = npc.Sprite,
                             X = npc.X,
                             Y = npc.Y,
                             CreatureType = CreatureType.Merchant,
@@ -3640,8 +3760,6 @@ public class WorldClient : SocketClientBase, IWorldClient
             color = ListColor.Clan;
         if (user.GameMaster)
             color = ListColor.Red;
-        if (user.Ranger)
-            color = ListColor.Green;
         if (user.Knight)
             color = ListColor.Green;
         if (user.ArenaHost)
@@ -3762,6 +3880,7 @@ public class WorldClient : SocketClientBase, IWorldClient
 
     public void ClientRefreshed()
     {
+        if (Aisling.Map.ID != ServerSetup.Instance.Config.TransitionZone) MapOpen = false;
         if (MapOpen) return;
         if (!CanRefresh) return;
 
@@ -3922,28 +4041,28 @@ public class WorldClient : SocketClientBase, IWorldClient
         // Durability check
         if (item.Durability <= 0 && item.Template.Flags.FlagIsSet(ItemFlags.Equipable))
         {
-            client.SendServerMessage(ServerMessageType.OrangeBar1, "I'll need to repair this before I can use it again.");
+            client.SendServerMessage(ServerMessageType.ActiveMessage, "I'll need to repair this before I can use it again.");
             return false;
         }
 
         // Level check
         if (client.Aisling.ExpLevel < item.Template.LevelRequired)
         {
-            client.SendServerMessage(ServerMessageType.OrangeBar1, "This item is simply too powerful for me.");
+            client.SendServerMessage(ServerMessageType.ActiveMessage, "This item is simply too powerful for me.");
             return false;
         }
 
         // Stage check
         if (client.Aisling.Stage < item.Template.StageRequired)
         {
-            client.SendServerMessage(ServerMessageType.OrangeBar1, "I do not have the current expertise for this.");
+            client.SendServerMessage(ServerMessageType.ActiveMessage, "I do not have the expertise for this.");
             return false;
         }
 
         // Job Level Check
         if (client.Aisling.AbpLevel < item.Template.JobLevelRequired)
         {
-            client.SendServerMessage(ServerMessageType.OrangeBar1, "I do not have the expertise level for this.");
+            client.SendServerMessage(ServerMessageType.ActiveMessage, "I do not have the expertise for this.");
             return false;
         }
 
@@ -3956,9 +4075,19 @@ public class WorldClient : SocketClientBase, IWorldClient
                 // Current class check
                 if (item.Template.Class != client.Aisling.Path)
                 {
-                    client.SendServerMessage(ServerMessageType.OrangeBar1, "This doesn't quite fit me.");
+                    client.SendServerMessage(ServerMessageType.ActiveMessage, "This doesn't fit my class.");
                     return false;
                 }
+            }
+        }
+
+        // Job Check
+        if (item.Template.JobRequired != Job.None)
+        {
+            if (client.Aisling.JobClass != item.Template.JobRequired)
+            {
+                client.SendServerMessage(ServerMessageType.ActiveMessage, "This doesn't quite match my profession.");
+                return false;
             }
         }
 
@@ -3976,7 +4105,7 @@ public class WorldClient : SocketClientBase, IWorldClient
                 return true;
         }
 
-        client.SendServerMessage(ServerMessageType.OrangeBar1, "I can't seem to use this");
+        client.SendServerMessage(ServerMessageType.ActiveMessage, "Doesn't seem to fit.");
         return false;
     }
 
@@ -4084,7 +4213,7 @@ public class WorldClient : SocketClientBase, IWorldClient
         if (skill.Level >= skill.Template.MaxLevel) return;
 
         var levelUpRand = Generator.RandomNumPercentGen();
-        if (skill.Uses >= 200)
+        if (skill.Uses >= 40 && skill.Template.SkillType != SkillScope.Assail)
             levelUpRand += 0.1;
 
         switch (levelUpRand)
@@ -4257,7 +4386,7 @@ public class WorldClient : SocketClientBase, IWorldClient
     {
         var item = new Legend.LegendItem
         {
-            Key = "Event",
+            Key = $"Sp{EphemeralRandomIdGenerator<uint>.Shared.NextId}ark{EphemeralRandomIdGenerator<uint>.Shared.NextId}",
             Time = DateTime.UtcNow,
             Color = LegendColor.Red,
             Icon = (byte)LegendIcon.Warrior,
@@ -4271,7 +4400,7 @@ public class WorldClient : SocketClientBase, IWorldClient
     {
         if (Aisling.Inventory.Items != null)
         {
-            foreach (var inventory in Aisling.Inventory.Items.Where(i => i.Value != null && i.Value.Template.Flags.FlagIsSet(ItemFlags.Repairable) && i.Value.Durability < i.Value.MaxDurability))
+            foreach (var inventory in Aisling.Inventory.Items.Where(i => i.Value != null && i.Value.Template.Flags.FlagIsSet(ItemFlags.Repairable)))
             {
                 var item = inventory.Value;
                 if (item.Template == null) continue;
@@ -4282,7 +4411,7 @@ public class WorldClient : SocketClientBase, IWorldClient
             }
         }
 
-        foreach (var (key, value) in Aisling.EquipmentManager.Equipment.Where(equip => equip.Value != null && equip.Value.Item.Template.Flags.FlagIsSet(ItemFlags.Repairable) && equip.Value.Item.Durability < equip.Value.Item.MaxDurability))
+        foreach (var (key, value) in Aisling.EquipmentManager.Equipment.Where(equip => equip.Value != null && equip.Value.Item.Template.Flags.FlagIsSet(ItemFlags.Repairable)))
         {
             var item = value.Item;
             if (item.Template == null) continue;
@@ -4302,8 +4431,8 @@ public class WorldClient : SocketClientBase, IWorldClient
     {
         Aisling.Flags = AislingFlags.Normal;
         Aisling.RegenTimerDisabled = false;
-        Aisling.CurrentHp = (int)(Aisling.MaximumHp * 0.80);
-        Aisling.CurrentMp = (int)(Aisling.MaximumMp * 0.80);
+        Aisling.CurrentHp = (long)(Aisling.MaximumHp * 0.80);
+        Aisling.CurrentMp = (long)(Aisling.MaximumMp * 0.80);
 
         SendAttributes(StatUpdateType.Vitality);
         return Aisling.CurrentHp > 0;
@@ -4321,7 +4450,10 @@ public class WorldClient : SocketClientBase, IWorldClient
         var user = ObjectHandlers.GetObject<Aisling>(map, i => i.Username.Equals(u, StringComparison.OrdinalIgnoreCase));
 
         if (user != null)
+        {
             user.CurrentHp = 0;
+            user.Client.DeathStatusCheck();
+        }
     }
 
     #endregion
@@ -4499,7 +4631,7 @@ public class WorldClient : SocketClientBase, IWorldClient
         }
         catch (Exception e)
         {
-            ServerSetup.Logger($"Issue giving {player.Username} experience.");
+            ServerSetup.EventsLogger($"Issue giving {player.Username} experience.");
             Crashes.TrackError(e);
         }
     }
@@ -4530,8 +4662,8 @@ public class WorldClient : SocketClientBase, IWorldClient
             player.StatPoints += (short)ServerSetup.Instance.Config.StatsPerLevel;
 
         // Set vitality
-        player.BaseHp += (int)(ServerSetup.Instance.Config.HpGainFactor * player._Con * 0.65);
-        player.BaseMp += (int)(ServerSetup.Instance.Config.MpGainFactor * player._Wis * 0.45);
+        player.BaseHp += (long)(ServerSetup.Instance.Config.HpGainFactor * player._Con * 0.65);
+        player.BaseMp += (long)(ServerSetup.Instance.Config.MpGainFactor * player._Wis * 0.45);
         player.CurrentHp = player.MaximumHp;
         player.CurrentMp = player.MaximumMp;
         player.Client.SendAttributes(StatUpdateType.Full);
@@ -4611,7 +4743,7 @@ public class WorldClient : SocketClientBase, IWorldClient
         }
         catch (Exception e)
         {
-            ServerSetup.Logger($"Issue giving {player.Username} ability points.");
+            ServerSetup.EventsLogger($"Issue giving {player.Username} ability points.");
             Crashes.TrackError(e);
         }
     }
@@ -4639,8 +4771,8 @@ public class WorldClient : SocketClientBase, IWorldClient
         player.StatPoints += 1;
 
         // Set vitality
-        player.BaseHp += (int)(ServerSetup.Instance.Config.HpGainFactor * player._Con * 1.23);
-        player.BaseMp += (int)(ServerSetup.Instance.Config.MpGainFactor * player._Wis * 0.90);
+        player.BaseHp += (long)(ServerSetup.Instance.Config.HpGainFactor * player._Con * 1.23);
+        player.BaseMp += (long)(ServerSetup.Instance.Config.MpGainFactor * player._Wis * 0.90);
         player.CurrentHp = player.MaximumHp;
         player.CurrentMp = player.MaximumMp;
         player.Client.SendAttributes(StatUpdateType.Full);
@@ -4694,9 +4826,7 @@ public class WorldClient : SocketClientBase, IWorldClient
             Aisling.LastPosition = new Position(Aisling.Pos);
             Aisling.Pos = new Vector2(position.X, position.Y);
             Aisling.CurrentMapId = area.ID;
-
-            WarpTo(position);
-            ClientRefreshed();
+            WarpToAndRefresh(position);
         }
 
         // ToDo: Logic to only play this if a menu is opened.
@@ -4725,10 +4855,11 @@ public class WorldClient : SocketClientBase, IWorldClient
             Aisling.LastPosition = new Position(Aisling.Pos);
             Aisling.Pos = new Vector2(position.X, position.Y);
             Aisling.CurrentMapId = target.ID;
-
-            WarpTo(new Position(Aisling.Pos));
-            ClientRefreshed();
+            WarpToAndRefresh(position);
         }
+
+        // ToDo: Logic to only play this if a menu is opened.
+        this.CloseDialog();
 
         return this;
     }
@@ -4757,7 +4888,7 @@ public class WorldClient : SocketClientBase, IWorldClient
         }
         else
         {
-            WarpTo(warps.To.Location);
+            WarpToAndRefresh(warps.To.Location);
         }
     }
 
@@ -4883,7 +5014,6 @@ public class WorldClient : SocketClientBase, IWorldClient
         if (Aisling.LastMapId != travelTo && Aisling.Map.Script.Item2 != null)
             Aisling.Map.Script.Item2.OnMapExit(this);
 
-        Aisling.View.Clear();
         return this;
     }
 
@@ -4966,16 +5096,10 @@ public class WorldClient : SocketClientBase, IWorldClient
             });
             sConn.Close();
         }
-        catch (SqlException e)
-        {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
-            Crashes.TrackError(e);
-        }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
     }
@@ -4996,16 +5120,10 @@ public class WorldClient : SocketClientBase, IWorldClient
             });
             sConn.Close();
         }
-        catch (SqlException e)
-        {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
-            Crashes.TrackError(e);
-        }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
     }
@@ -5036,14 +5154,14 @@ public class WorldClient : SocketClientBase, IWorldClient
                 return;
             }
 
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
     }
@@ -5074,14 +5192,14 @@ public class WorldClient : SocketClientBase, IWorldClient
                 return;
             }
 
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
     }
@@ -5102,16 +5220,10 @@ public class WorldClient : SocketClientBase, IWorldClient
             });
             sConn.Close();
         }
-        catch (SqlException e)
-        {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
-            Crashes.TrackError(e);
-        }
         catch (Exception e)
         {
-            ServerSetup.Logger(e.Message, LogLevel.Error);
-            ServerSetup.Logger(e.StackTrace, LogLevel.Error);
+            ServerSetup.EventsLogger(e.Message, LogLevel.Error);
+            ServerSetup.EventsLogger(e.StackTrace, LogLevel.Error);
             Crashes.TrackError(e);
         }
     }

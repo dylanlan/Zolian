@@ -1,4 +1,5 @@
 ﻿using System.Security.Cryptography;
+using ServiceStack;
 
 namespace Darkages.Common;
 
@@ -27,17 +28,18 @@ public static class Generator
     /// <returns>Random element from collection</returns>
     public static T RandomIEnum<T>(this IEnumerable<T> enumerable)
     {
-        return enumerable.RandomElementUsing<T>();
+        return enumerable.RandomElementUsing();
     }
 
     private static T RandomElementUsing<T>(this IEnumerable<T> enumerable)
     {
         var enumeratedArray = enumerable as T[] ?? enumerable.ToArray();
-        var index = Random.Shared.Next(0, enumeratedArray.Count());
+        if (enumeratedArray.IsEmpty()) return default;
+        var index = Random.Shared.Next(0, enumeratedArray.Length);
         return enumeratedArray.ElementAt(index);
     }
 
-    public static int RandomMonsterStatVariance(int value)
+    public static long RandomMonsterStatVariance(long value)
     {
         var variance = RandomNumberGenerator.GetInt32(9);
         var percent = variance switch
@@ -53,7 +55,7 @@ public static class Generator
             _ => 0.18
         };
 
-        var bonusValue = (int)(value * percent);
+        var bonusValue = (long)(value * percent);
         value += bonusValue;
 
         return value;

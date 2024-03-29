@@ -39,6 +39,7 @@ public record AreaStorage : IAreaStorage
             {
                 var flags = ServiceStack.AutoMappingUtils.ConvertTo<MapFlags>(reader["Flags"]);
                 var miningNodes = ServiceStack.AutoMappingUtils.ConvertTo<MiningNodes>(reader["MiningNodes"]);
+                var wildFlowers = ServiceStack.AutoMappingUtils.ConvertTo<WildFlowers>(reader["WildFlowers"]);
                 var rows = (int)reader["mRows"];
                 var cols = (int)reader["mCols"];
                 var temp = new Area
@@ -50,6 +51,7 @@ public record AreaStorage : IAreaStorage
                     Width = (ushort)cols,
                     ScriptKey = reader["ScriptKey"].ToString(),
                     MiningNodes = miningNodes,
+                    WildFlowers = wildFlowers,
                     Name = reader["Name"].ToString()
                 };
 
@@ -59,7 +61,7 @@ public record AreaStorage : IAreaStorage
 
                 if (!LoadMap(temp, mapFile))
                 {
-                    ServerSetup.Logger($"Map Load Unsuccessful: {temp.ID}_{temp.Name}");
+                    ServerSetup.EventsLogger($"Map Load Unsuccessful: {temp.ID}_{temp.Name}");
                     continue;
                 }
 
@@ -79,7 +81,7 @@ public record AreaStorage : IAreaStorage
         }
         catch (SqlException e)
         {
-            ServerSetup.Logger(e.ToString());
+            ServerSetup.EventsLogger(e.ToString());
         }
         finally
         {
@@ -87,7 +89,7 @@ public record AreaStorage : IAreaStorage
         }
 
         ServerSetup.Instance.GlobalMapCache = ServerSetup.Instance.TempGlobalMapCache.ToFrozenDictionary();
-        ServerSetup.Logger($"Maps: {ServerSetup.Instance.GlobalMapCache.Count}");
+        ServerSetup.EventsLogger($"Maps: {ServerSetup.Instance.GlobalMapCache.Count}");
     }
 
     public bool LoadMap(Area mapObj, string mapFile)

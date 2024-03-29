@@ -519,8 +519,9 @@ public class Dar : MundaneScript
 
                     break;
 
-                    #endregion
                 }
+
+                #endregion
         }
     }
 }
